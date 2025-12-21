@@ -99,7 +99,7 @@ mod dairy_hater {
 
         let mut printer = AstPrinter;
 
-        let mut expr = parser.expression();
+        let mut expr = parser.parse();
 
         println!("{}", printer.print(&mut expr))
     }

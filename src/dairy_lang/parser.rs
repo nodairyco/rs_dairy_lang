@@ -14,6 +14,8 @@ pub struct Parser {
 #[derive(Debug)]
 struct ParseError;
 
+type ParseResult = Result<Expr, ParseError>;
+
 impl Parser {
     /// Create new parser with given tokens
     pub fn new(tokens: Vec<Token>) -> Parser {
@@ -23,9 +25,16 @@ impl Parser {
         }
     }
 
+    pub fn parse(&mut self) -> Expr {
+        match self.expression() {
+            Ok(res) => res,
+            Err(_) => Expr::empty()
+        }
+    }
+
     /// Top most expression maps directly to equality <br>
     /// expression -> equality
-    pub fn expression(&mut self) -> Expr {
+    fn expression(&mut self) -> ParseResult {
         self.equality()
     }
 
@@ -34,7 +43,7 @@ impl Parser {
     /// Then while the next couple types are equality types,
     /// we get the token and the the right sub tree and add it to the expression <br>
     /// equality -> comparison (("!=" | "==") comparison )* ;
-    fn equality(&mut self) -> Expr {
+    fn equality(&mut self) -> ParseResult {
         let mut expr = self.comparison();
 
         while self.match_types(&[TokenType::BANG_EQUAL, TokenType::EQUAL_EQUAL]) {
@@ -49,11 +58,19 @@ impl Parser {
 
             let right = self.comparison();
 
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                operator: op_new,
-                right: Box::new(right),
-            }
+            match expr {
+                Err(_) => break,
+                Ok(res) => {
+                    expr = match right {
+                        Ok(res_r) => Ok(Expr::Binary {
+                            left: Box::new(res),
+                            operator: op_new,
+                            right: Box::new(res_r),
+                        }),
+                        Err(err_r) => Err(err_r),
+                    }
+                }
+            };
         }
 
         expr
@@ -61,7 +78,7 @@ impl Parser {
 
     /// Works the same way as equality,but one level lower <br>
     /// comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-    fn comparison(&mut self) -> Expr {
+    fn comparison(&mut self) -> ParseResult {
         let mut expr = self.term();
 
         while self.match_types(&[
@@ -81,11 +98,19 @@ impl Parser {
 
             let right = self.term();
 
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                operator: op_new,
-                right: Box::new(right),
-            }
+            match expr {
+                Err(_) => break,
+                Ok(res) => {
+                    expr = match right {
+                        Ok(res_r) => Ok(Expr::Binary {
+                            left: Box::new(res),
+                            operator: op_new,
+                            right: Box::new(res_r),
+                        }),
+                        Err(err_r) => Err(err_r),
+                    }
+                }
+            };
         }
 
         expr
@@ -93,7 +118,7 @@ impl Parser {
 
     /// Works in the same way as comparison <br>
     /// temr -> factor ( ( "-" | "+" ) factor )* ;
-    fn term(&mut self) -> Expr {
+    fn term(&mut self) -> ParseResult {
         let mut expr = self.factor();
 
         while self.match_types(&[TokenType::MINUS, TokenType::PLUS]) {
@@ -108,11 +133,19 @@ impl Parser {
 
             let right = self.factor();
 
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                operator: op_new,
-                right: Box::new(right),
-            }
+            match expr {
+                Err(_) => break,
+                Ok(res) => {
+                    expr = match right {
+                        Ok(res_r) => Ok(Expr::Binary {
+                            left: Box::new(res),
+                            operator: op_new,
+                            right: Box::new(res_r),
+                        }),
+                        Err(err_r) => Err(err_r),
+                    }
+                }
+            };
         }
 
         expr
@@ -120,10 +153,10 @@ impl Parser {
 
     /// Works in the same way as term <br>
     /// factor -> unary ( ( "/" | "*" ) unary )* ;
-    fn factor(&mut self) -> Expr {
+    fn factor(&mut self) -> ParseResult {
         let mut expr = self.unary();
 
-        while self.match_types(&[TokenType::MINUS, TokenType::PLUS]) {
+        while self.match_types(&[TokenType::SLASH, TokenType::STAR]) {
             let operator = self.prev();
 
             let op_new = Token::new(
@@ -135,11 +168,19 @@ impl Parser {
 
             let right = self.unary();
 
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                operator: op_new,
-                right: Box::new(right),
-            }
+            match expr {
+                Err(_) => break,
+                Ok(res) => {
+                    expr = match right {
+                        Ok(res_r) => Ok(Expr::Binary {
+                            left: Box::new(res),
+                            operator: op_new,
+                            right: Box::new(res_r),
+                        }),
+                        Err(err_r) => Err(err_r),
+                    }
+                }
+            };
         }
 
         expr
@@ -148,7 +189,7 @@ impl Parser {
     /// Simply if there is a unary operation go save it and go one deeper, and so on if a unary is found <br>
     /// If not this is a primary and we just return self.primary() <br>
     /// unary -> ( "!" | "-" ) unary | primary ;
-    fn unary(&mut self) -> Expr {
+    fn unary(&mut self) -> ParseResult {
         if self.match_types(&[TokenType::BANG, TokenType::MINUS]) {
             let operator = self.prev();
 
@@ -161,9 +202,12 @@ impl Parser {
 
             let right = self.unary();
 
-            return Expr::Unary {
-                operator: op_new,
-                right: Box::new(right),
+            return match right {
+                Ok(res) => Ok(Expr::Unary {
+                    operator: op_new,
+                    right: Box::new(res),
+                }),
+                Err(err) => Err(err),
             };
         }
 
@@ -175,52 +219,57 @@ impl Parser {
     /// But there is a case with ( and ) where we have to evaluate an expression,
     /// which is evaluated and a grouping is returned <br>
     /// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-    fn primary(&mut self) -> Expr {
+    fn primary(&mut self) -> ParseResult {
         if self.match_types(&[TokenType::FALSE]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: Some(Value::Bool(false)),
-            };
+            });
         }
 
         if self.match_types(&[TokenType::TRUE]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: Some(Value::Bool(true)),
-            };
+            });
         }
 
         if self.match_types(&[TokenType::VICTIM]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: Some(Value::Nil),
-            };
+            });
         }
 
         if self.match_types(&[TokenType::NUMBER]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: self.prev().literal.clone(),
-            };
+            });
         }
 
         if self.match_types(&[TokenType::STRING]) {
-            return Expr::Literal {
+            return Ok(Expr::Literal {
                 value: self.prev().literal.clone(),
-            };
+            });
         }
 
         if self.match_types(&[TokenType::LEFT_PAREN]) {
             let expr = self.expression();
 
-            let _ = self.consume(
+            match self.consume(
                 TokenType::RIGHT_PAREN,
                 String::from("Expect ')' after expression."),
-            );
-
-            return Expr::Grouping {
-                expression: Box::new(expr),
+            ) {
+                Ok(_) => match expr {
+                    Ok(res) => {
+                        return Ok(Expr::Grouping {
+                            expression: Box::new(res),
+                        });
+                    },
+                    Err(err) => return Err(err)
+                },
+                Err(err) => return Err(err),
             };
         }
 
-        dairy_hater::error_token(self.peek(), "Unemplemented error".to_string());
-        Expr::empty()
+        Err(Self::error(self.peek(), "Unemplemented error".to_string()))
     }
 
     /// Get the Token at the current addr
@@ -275,5 +324,31 @@ impl Parser {
         }
 
         return Err(Self::error(self.peek(), msg));
+    }
+
+    /// Function to synchronise in case an error occures. <br>
+    /// If a parse error is detected, drop tokens, until a start of a new expression,
+    /// or the end of the current one is found.
+    fn sync(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            match self.peek().token_type {
+                TokenType::SEMICOLON => return,
+                TokenType::CLASS => return,
+                TokenType::FUNCT => return,
+                TokenType::FUNCTIO => return,
+                TokenType::VAR => return,
+                TokenType::VAL => return,
+                TokenType::FOR => return,
+                TokenType::IF => return,
+                TokenType::WHILE => return,
+                TokenType::PRINT => return,
+                TokenType::RETURN => return,
+                _ => {}
+            }
+
+            self.advance();
+        }
     }
 }
