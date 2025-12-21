@@ -1,7 +1,9 @@
-mod expression;
-mod scanner;
-mod token;
-mod parser;
+mod dairy_lang {
+    pub mod expression;
+    pub mod parser;
+    pub mod scanner;
+    pub mod token;
+}
 
 fn main() {
     let file_name;
@@ -31,7 +33,12 @@ mod dairy_hater {
         sync::atomic::Ordering,
     };
 
-    use crate::{expression::AstPrinter, parser::Parser, scanner::Scanner, token::{Token, TokenType}};
+    use crate::dairy_lang::{
+        expression::AstPrinter,
+        parser::Parser,
+        scanner::Scanner,
+        token::{Token, TokenType},
+    };
 
     static HAD_ERR: AtomicBool = AtomicBool::new(false);
 
@@ -88,7 +95,7 @@ mod dairy_hater {
         let scanner = Scanner::new(file_contents);
         let tokens = scanner.scan_tokens();
 
-        let mut parser = Parser::new(tokens);        
+        let mut parser = Parser::new(tokens);
 
         let mut printer = AstPrinter;
 

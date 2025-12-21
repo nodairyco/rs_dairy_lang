@@ -1,6 +1,6 @@
 use crate::{
     dairy_hater,
-    token::{Token, TokenType, Value},
+    dairy_lang::token::{Token, TokenType, Value},
 };
 
 pub struct Scanner {

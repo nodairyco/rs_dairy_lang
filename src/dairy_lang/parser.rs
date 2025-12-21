@@ -1,5 +1,9 @@
 use crate::{
-    dairy_hater::{self}, expression::Expr, token::{Token, TokenType, Value}
+    dairy_hater::{self},
+    dairy_lang::{
+        expression::Expr,
+        token::{Token, TokenType, Value},
+    },
 };
 
 pub struct Parser {
@@ -205,12 +209,15 @@ impl Parser {
         if self.match_types(&[TokenType::LEFT_PAREN]) {
             let expr = self.expression();
 
-            let _ = self.consume(TokenType::RIGHT_PAREN, String::from("Expect ')' after expression."));
+            let _ = self.consume(
+                TokenType::RIGHT_PAREN,
+                String::from("Expect ')' after expression."),
+            );
 
             return Expr::Grouping {
                 expression: Box::new(expr),
             };
-        } 
+        }
 
         dairy_hater::error_token(self.peek(), "Unemplemented error".to_string());
         Expr::empty()
@@ -260,11 +267,11 @@ impl Parser {
     fn error(token: &Token, msg: String) -> ParseError {
         dairy_hater::error_token(&token, msg);
         ParseError
-    } 
+    }
 
     fn consume(&mut self, token_type: TokenType, msg: String) -> Result<&Token, ParseError> {
         if self.check_curr_type(token_type) {
-            return Ok(self.advance()) 
+            return Ok(self.advance());
         }
 
         return Err(Self::error(self.peek(), msg));
