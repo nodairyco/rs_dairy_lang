@@ -3,6 +3,7 @@ mod dairy_lang {
     pub mod interpreter;
     pub mod parser;
     pub mod scanner;
+    pub mod stmt;
     pub mod token;
 }
 
@@ -49,9 +50,6 @@ mod dairy_hater {
     static HAD_ERR: AtomicBool = AtomicBool::new(false);
 
     pub fn run_file(path: String) {
-        println!("{}", "=".repeat(100));
-        println!("Running {}", path);
-
         let contets = fs::read_to_string(path).expect("ERR! Cannot read file");
 
         run(contets);
@@ -103,14 +101,12 @@ mod dairy_hater {
 
         let mut parser = Parser::new(tokens);
 
-        let mut printer = AstPrinter;
+        let _ = AstPrinter;
 
-        let mut expr = parser.parse();
+        let mut stmts = parser.parse();
 
         let mut interpreter = Interpreter;
 
-        let val = interpreter.interprete(&mut expr);
-
-        println!("expr:{}, \nval:{}", printer.print(&mut expr), val)
+        let _ = interpreter.interpret(&mut stmts);
     }
 }
