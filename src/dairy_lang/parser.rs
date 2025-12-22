@@ -222,19 +222,19 @@ impl Parser {
     fn primary(&mut self) -> ParseResult {
         if self.match_types(&[TokenType::FALSE]) {
             return Ok(Expr::Literal {
-                value: Some(Value::Bool(false)),
+                value: Value::Bool(false),
             });
         }
 
         if self.match_types(&[TokenType::TRUE]) {
             return Ok(Expr::Literal {
-                value: Some(Value::Bool(true)),
+                value: Value::Bool(true),
             });
         }
 
         if self.match_types(&[TokenType::VICTIM]) {
             return Ok(Expr::Literal {
-                value: Some(Value::Nil),
+                value: Value::Nil,
             });
         }
 

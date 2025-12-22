@@ -1,5 +1,6 @@
 use crate::dairy_lang::token::{Token, Value};
 
+#[derive(Debug)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
@@ -10,7 +11,7 @@ pub enum Expr {
         expression: Box<Expr>,
     },
     Literal {
-        value: Option<Value>,
+        value: Value,
     },
     Unary {
         operator: Token,
@@ -19,7 +20,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    fn accept<R>(&mut self, visitor: &mut dyn Visitor<R>) -> R {
+    pub fn accept<R>(&mut self, visitor: &mut dyn Visitor<R>) -> R {
         match self {
             Expr::Binary {
                 left,
@@ -33,14 +34,14 @@ impl Expr {
     }
 
     pub fn empty() -> Expr {
-        Expr::Literal { value: None }
+        Expr::Literal { value: Value::Nil }
     }
 }
 
 pub trait Visitor<R> {
     fn visit_binary(&mut self, left: &mut Expr, operator: &mut Token, right: &mut Expr) -> R;
     fn visit_grouping(&mut self, expr: &mut Expr) -> R;
-    fn visit_literal(&mut self, val: &mut Option<Value>) -> R;
+    fn visit_literal(&mut self, val: &mut Value) -> R;
     fn visit_unary(&mut self, operator: &mut Token, right: &mut Expr) -> R;
 }
 
@@ -78,11 +79,8 @@ impl Visitor<String> for AstPrinter {
         self.paranthesize(&String::from("group"), vec![expr])
     }
 
-    fn visit_literal(&mut self, val: &mut Option<Value>) -> String {
-        match val {
-            Some(v) => format!("{}", v),
-            None => String::from("nil"),
-        }
+    fn visit_literal(&mut self, val: &mut Value) -> String {
+        format!("{}", val) 
     }
 
     fn visit_unary(&mut self, operator: &mut Token, right: &mut Expr) -> String {

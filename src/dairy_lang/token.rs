@@ -2,7 +2,7 @@
 #![allow(unused)]
 
 use core::fmt;
-use std::{any::Any, fmt::write};
+use std::fmt::write;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
@@ -70,11 +70,11 @@ pub struct Token {
     pub token_type: TokenType,
     pub lexem: String,
     pub line: u32,
-    pub literal: Option<Value>,
+    pub literal: Value,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexem: String, line: u32, literal: Option<Value>) -> Token {
+    pub fn new(token_type: TokenType, lexem: String, line: u32, literal: Value) -> Token {
         Token {
             token_type: token_type,
             lexem: lexem,
@@ -97,10 +97,6 @@ impl fmt::Display for Value {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let lit = match &self.literal {
-            Some(v) => format!("{}", v),
-            None => "VicTim".to_string(),
-        };
-        write!(f, "{:?} {} {}", self.token_type, self.lexem, lit)
+        write!(f, "{:?} {} {}", self.token_type, self.lexem, self.literal)
     }
 }

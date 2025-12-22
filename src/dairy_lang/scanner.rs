@@ -67,7 +67,7 @@ impl Scanner {
 
         // Push the end of file token to the end of the token list
         self.tokens
-            .push(Token::new(TokenType::EOF, "".to_string(), self.line, None));
+            .push(Token::new(TokenType::EOF, "".to_string(), self.line, Value::Nil));
 
         return self.tokens.clone();
     }
@@ -173,11 +173,11 @@ impl Scanner {
 
     /// Add token with Nil value and specified type to the list
     fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_val(None, token_type);
+        self.add_token_val(Value::Nil, token_type);
     }
 
     /// Adds current lexeme with the given value and type to the token list
-    fn add_token_val(&mut self, val: Option<Value>, token_type: TokenType) {
+    fn add_token_val(&mut self, val: Value, token_type: TokenType) {
         let text = &self.source[self.start as usize..self.current as usize];
 
         self.tokens
@@ -249,7 +249,7 @@ impl Scanner {
         self.advance();
         let val = &self.source[(self.start + 1) as usize..(self.current - 1) as usize];
 
-        self.add_token_val(Some(Value::Str(String::from(val))), TokenType::STRING);
+        self.add_token_val(Value::Str(String::from(val)), TokenType::STRING);
     }
 
     /// Parse from number and if dot is found if proceeding number it is turned into a floating point number.
@@ -270,7 +270,7 @@ impl Scanner {
 
         let val: f64 = val_str.parse().expect("ERR! Error trying to parse number");
 
-        self.add_token_val(Some(Value::Number(val)), TokenType::NUMBER);
+        self.add_token_val(Value::Number(val), TokenType::NUMBER);
     }
 
     /// Check if a char is part of the alphabet or _
