@@ -1,11 +1,16 @@
 mod dairy_lang {
     pub mod expression;
+    pub mod interpreter;
     pub mod parser;
     pub mod scanner;
     pub mod token;
 }
 
 fn main() {
+    run_interpreter();
+}
+
+fn run_interpreter() {
     let file_name;
 
     let mut args = std::env::args();
@@ -35,6 +40,7 @@ mod dairy_hater {
 
     use crate::dairy_lang::{
         expression::AstPrinter,
+        interpreter::Interpreter,
         parser::Parser,
         scanner::Scanner,
         token::{Token, TokenType},
@@ -101,6 +107,10 @@ mod dairy_hater {
 
         let mut expr = parser.parse();
 
-        println!("{}", printer.print(&mut expr))
+        let mut interpreter = Interpreter;
+
+        let val = interpreter.interprete(&mut expr);
+
+        println!("expr:{}, \nval:{}", printer.print(&mut expr), val)
     }
 }
