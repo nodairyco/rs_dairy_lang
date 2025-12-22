@@ -2,6 +2,7 @@ use crate::{
     dairy_hater::{self},
     dairy_lang::{
         expression::Expr,
+        stmt::Stmt,
         token::{Token, TokenType, Value},
     },
 };
@@ -25,11 +26,54 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Expr {
-        match self.expression() {
-            Ok(res) => res,
-            Err(_) => Expr::empty()
+    /// Get statements from current tokens
+    pub fn parse(&mut self) -> Vec<Stmt> {
+        let mut stmts: Vec<Stmt> = vec![];
+
+        while !self.is_at_end() {
+            stmts.push(self.get_stmt_from_curr_expr());
         }
+
+        stmts
+    }
+
+    /// Get a statement from the current expression
+    fn get_stmt_from_curr_expr(&mut self) -> Stmt {
+        if self.match_types(&[TokenType::PRINT]) {
+            return self.print_stmt();
+        }
+
+        self.expr_stmt()
+    }
+
+    /// Get a print statement from the current expression
+    fn print_stmt(&mut self) -> Stmt {
+        let expr = match self.expression() {
+            Ok(res) => res,
+            Err(_) => Expr::empty(),
+        };
+
+        let _ = self.consume(
+            TokenType::SEMICOLON,
+            "Expect ';' after a statement".to_string(),
+        );
+
+        Stmt::Print(expr)
+    }
+
+    /// Get an expression statement from the current expression.
+    fn expr_stmt(&mut self) -> Stmt {
+        let expr = match self.expression() {
+            Ok(res) => res,
+            Err(_) => Expr::empty(),
+        };
+
+        let _ = self.consume(
+            TokenType::SEMICOLON,
+            "Expect ';' after a statement".to_string(),
+        );
+
+        Stmt::Expression(expr)
     }
 
     /// Top most expression maps directly to equality <br>
@@ -233,9 +277,7 @@ impl Parser {
         }
 
         if self.match_types(&[TokenType::VICTIM]) {
-            return Ok(Expr::Literal {
-                value: Value::Nil,
-            });
+            return Ok(Expr::Literal { value: Value::Nil });
         }
 
         if self.match_types(&[TokenType::NUMBER]) {
@@ -262,8 +304,8 @@ impl Parser {
                         return Ok(Expr::Grouping {
                             expression: Box::new(res),
                         });
-                    },
-                    Err(err) => return Err(err)
+                    }
+                    Err(err) => return Err(err),
                 },
                 Err(err) => return Err(err),
             };
