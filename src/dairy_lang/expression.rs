@@ -1,4 +1,4 @@
-use crate::dairy_lang::token::{Token, Value};
+use crate::dairy_lang::{expression, token::{Token, Value}};
 
 #[derive(Debug)]
 pub enum Expr {
@@ -70,7 +70,7 @@ impl AstPrinter {
     }
 }
 
-impl Visitor<String> for AstPrinter {
+impl expression::Visitor<String> for AstPrinter {
     fn visit_binary(&mut self, left: &mut Expr, operator: &mut Token, right: &mut Expr) -> String {
         self.paranthesize(&operator.lexem, vec![left, right])
     }

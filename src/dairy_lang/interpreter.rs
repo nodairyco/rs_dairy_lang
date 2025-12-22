@@ -1,7 +1,8 @@
 use crate::{
     dairy_hater,
     dairy_lang::{
-        expression::{Expr, Visitor},
+        expression::{self, Expr},
+        stmt::{self, Stmt},
         token::{Token, TokenType, Value},
     },
 };
@@ -30,18 +31,43 @@ impl Interpreter {
         }
     }
 
-    pub fn interprete(&mut self, expr: &mut Expr) -> String {
-        let val = self.evaluate(expr).unwrap();
+    pub fn interpret(&mut self, stmts: &mut Vec<Stmt>) {
+        for stmt in stmts {
+            match self.execute_stmt(stmt) {
+                Ok(_) => (),
+                Err(_) => panic!(),
+            }
+        }
+    }
 
-        format!("{}", val)
+    fn execute_stmt(&mut self, stmt: &mut Stmt) -> StmtResult {
+        stmt.accept(self)
     }
 }
 
 #[derive(Debug)]
 struct EvalError;
 type EvalResult = Result<Value, EvalError>;
+type StmtResult = Result<(), EvalError>;
 
-impl Visitor<EvalResult> for Interpreter {
+impl stmt::Visitor<StmtResult> for Interpreter {
+    fn visit_print_stmt(&mut self, print_expr: &mut Expr) -> StmtResult {
+        let val = self.evaluate(print_expr);
+        match val {
+            Ok(value) => Ok(println!("{}", value)),
+            Err(_) => Err(EvalError)
+        }
+    }
+
+    fn visit_expr_stmt(&mut self, expr_expr: &mut Expr) -> StmtResult {
+        match self.evaluate(expr_expr) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(EvalError) 
+        }
+    }
+}
+
+impl expression::Visitor<EvalResult> for Interpreter {
     fn visit_binary(
         &mut self,
         left: &mut Expr,
