@@ -90,6 +90,26 @@ impl Visitor<EvalResult> for Interpreter {
                     Err(EvalError)
                 }
             },
+            (Value::Str(l), Value::Number(r)) => match operator.token_type {
+                TokenType::PLUS => Ok(Value::Str(l + &r.to_string())),
+                _ => {
+                    dairy_hater::error_token(
+                        &operator,
+                        format!("unsupported operation {} for string", operator.lexem),
+                    );
+                    Err(EvalError)
+                }
+            },
+            (Value::Number(l), Value::Str(r)) => match operator.token_type {
+                TokenType::PLUS => Ok(Value::Str(l.to_string() + &r)),
+                _ => {
+                    dairy_hater::error_token(
+                        &operator,
+                        format!("unsupported operation {} for string", operator.lexem),
+                    );
+                    Err(EvalError)
+                }
+            },
             (Value::Bool(l), Value::Bool(r)) => match operator.token_type {
                 TokenType::AND => Ok(Value::Bool(l && r)),
                 TokenType::OR => Ok(Value::Bool(l || r)),
