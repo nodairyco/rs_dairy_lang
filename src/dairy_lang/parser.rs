@@ -1,6 +1,7 @@
 use crate::{
     dairy_hater::{self},
     dairy_lang::{
+        environment::VarType,
         expression::Expr,
         stmt::Stmt,
         token::{Token, TokenType, Value},
@@ -15,15 +16,12 @@ pub struct Parser {
 #[derive(Debug)]
 struct ParseError;
 
-type ParseResult = Result<Expr, ParseError>;
+type ParseResult<T> = Result<T, ParseError>;
 
 impl Parser {
     /// Create new parser with given tokens
     pub fn new(tokens: Vec<Token>) -> Parser {
-        Parser {
-            tokens: tokens,
-            current: 0,
-        }
+        Parser { tokens, current: 0 }
     }
 
     /// Get statements from current tokens
@@ -31,14 +29,98 @@ impl Parser {
         let mut stmts: Vec<Stmt> = vec![];
 
         while !self.is_at_end() {
-            stmts.push(self.get_stmt_from_curr_expr());
+            stmts.push(self.declaration());
         }
 
         stmts
     }
 
+    /// If the current token is VAR we have a variable declaration and it's parsed as such, else
+    /// it's a normal statement. If there is an error it's synced and an empty expression (Nil) is returned
+    fn declaration(&mut self) -> Stmt {
+        let parser_res;
+
+        if self.match_types(&[TokenType::VAR]) {
+            parser_res = self.var_declaration();
+        } else if self.match_types(&[TokenType::VAL]) {
+            parser_res = self.const_declaration();
+        } else {
+            parser_res = self.statement();
+        }
+
+        match parser_res {
+            Ok(stmt) => stmt,
+            _ => {
+                self.sync();
+                Stmt::Expression(Expr::empty())
+            }
+        }
+    }
+
+    /// Declare const with VAL keyword
+    fn const_declaration(&mut self) -> ParseResult<Stmt> {
+        let name: Token;
+
+        match self.consume(TokenType::IDENTIFIER, "Expected a const name".to_string()) {
+            Ok(t) => name = t.clone(),
+            _ => return Err(ParseError),
+        };
+
+        let mut initializer = Expr::empty();
+
+        if self.match_types(&[TokenType::EQUAL]) {
+            match self.expression() {
+                Ok(expr) => initializer = expr,
+                _ => return Err(ParseError),
+            };
+        }
+
+        match self.consume(
+            TokenType::SEMICOLON,
+            String::from("Expected ';' after val declaration"),
+        ) {
+            Err(_) => return Err(ParseError),
+            _ => (),
+        }
+
+        Ok(Stmt::new_var(name, initializer, VarType::VAL))
+    }
+
+    /// Gets var name from IDENTIFIER Token, then checks if there is an expression following declaration.
+    /// If not variable is initialized as Nil
+    fn var_declaration(&mut self) -> ParseResult<Stmt> {
+        let name: Token;
+
+        match self.consume(
+            TokenType::IDENTIFIER,
+            String::from("Expected a variable name."),
+        ) {
+            Ok(t) => name = t.clone(),
+            _ => return Err(ParseError),
+        };
+
+        let mut initializer = Expr::empty();
+
+        if self.match_types(&[TokenType::EQUAL]) {
+            match self.expression() {
+                Ok(expr) => initializer = expr,
+                _ => return Err(ParseError),
+            }
+        };
+
+        match self.consume(
+            TokenType::SEMICOLON,
+            String::from("Expected ';' after variable declaration"),
+        ) {
+            Err(_) => return Err(ParseError),
+            _ => (),
+        }
+
+        Ok(Stmt::new_var(name, initializer, VarType::VAR))
+    }
+
     /// Get a statement from the current expression
-    fn get_stmt_from_curr_expr(&mut self) -> Stmt {
+    fn statement(&mut self) -> ParseResult<Stmt> {
         if self.match_types(&[TokenType::PRINT]) {
             return self.print_stmt();
         }
@@ -47,39 +129,77 @@ impl Parser {
     }
 
     /// Get a print statement from the current expression
-    fn print_stmt(&mut self) -> Stmt {
-        let expr = match self.expression() {
-            Ok(res) => res,
-            Err(_) => Expr::empty(),
+    fn print_stmt(&mut self) -> ParseResult<Stmt> {
+        let expr: Expr;
+        match self.expression() {
+            Ok(res) => expr = res,
+            Err(_) => return Err(ParseError),
         };
 
-        let _ = self.consume(
+        match self.consume(
             TokenType::SEMICOLON,
             "Expect ';' after a statement".to_string(),
-        );
-
-        Stmt::Print(expr)
+        ) {
+            Ok(_) => Ok(Stmt::Print(expr)),
+            Err(_) => Err(ParseError),
+        }
     }
 
     /// Get an expression statement from the current expression.
-    fn expr_stmt(&mut self) -> Stmt {
-        let expr = match self.expression() {
-            Ok(res) => res,
-            Err(_) => Expr::empty(),
+    fn expr_stmt(&mut self) -> ParseResult<Stmt> {
+        let expr: Expr;
+        match self.expression() {
+            Ok(res) => expr = res,
+            Err(_) => return Err(ParseError),
         };
 
-        let _ = self.consume(
+        match self.consume(
             TokenType::SEMICOLON,
             "Expect ';' after a statement".to_string(),
-        );
-
-        Stmt::Expression(expr)
+        ) {
+            Ok(_) => Ok(Stmt::Expression(expr)),
+            Err(_) => Err(ParseError),
+        }
     }
 
     /// Top most expression maps directly to equality <br>
     /// expression -> equality
-    fn expression(&mut self) -> ParseResult {
-        self.equality()
+    fn expression(&mut self) -> ParseResult<Expr> {
+        self.assignment()
+    }
+
+    /// Assignment
+    /// assign -> IDNETIFIER "=" assignment | equality
+    fn assignment(&mut self) -> ParseResult<Expr> {
+        let expr_res: ParseResult<Expr> = self.equality();
+
+        if self.match_types(&[TokenType::EQUAL]) {
+            let previous_token: Token = self.prev().clone();
+
+            let var_value: ParseResult<Expr> = self.assignment();
+
+            return match expr_res {
+                Ok(expr) => match expr {
+                    Expr::Var { name } => match var_value {
+                        Ok(var_value_expression) => Ok(Expr::Assign {
+                            name,
+                            value: Box::from(var_value_expression),
+                        }),
+                        _ => Err(ParseError),
+                    },
+                    _ => {
+                        dairy_hater::error_token(
+                            &previous_token,
+                            String::from("Invalid assignment target."),
+                        );
+                        Err(ParseError)
+                    }
+                },
+                Err(_) => Err(ParseError),
+            };
+        }
+
+        expr_res
     }
 
     /// Mapping for the equality expression type to a rust function <br>
@@ -87,7 +207,7 @@ impl Parser {
     /// Then while the next couple types are equality types,
     /// we get the token and the the right sub tree and add it to the expression <br>
     /// equality -> comparison (("!=" | "==") comparison )* ;
-    fn equality(&mut self) -> ParseResult {
+    fn equality(&mut self) -> ParseResult<Expr> {
         let mut expr = self.comparison();
 
         while self.match_types(&[TokenType::BANG_EQUAL, TokenType::EQUAL_EQUAL]) {
@@ -122,7 +242,7 @@ impl Parser {
 
     /// Works the same way as equality,but one level lower <br>
     /// comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-    fn comparison(&mut self) -> ParseResult {
+    fn comparison(&mut self) -> ParseResult<Expr> {
         let mut expr = self.term();
 
         while self.match_types(&[
@@ -162,7 +282,7 @@ impl Parser {
 
     /// Works in the same way as comparison <br>
     /// temr -> factor ( ( "-" | "+" ) factor )* ;
-    fn term(&mut self) -> ParseResult {
+    fn term(&mut self) -> ParseResult<Expr> {
         let mut expr = self.factor();
 
         while self.match_types(&[TokenType::MINUS, TokenType::PLUS]) {
@@ -197,7 +317,7 @@ impl Parser {
 
     /// Works in the same way as term <br>
     /// factor -> unary ( ( "/" | "*" ) unary )* ;
-    fn factor(&mut self) -> ParseResult {
+    fn factor(&mut self) -> ParseResult<Expr> {
         let mut expr = self.unary();
 
         while self.match_types(&[TokenType::SLASH, TokenType::STAR]) {
@@ -233,7 +353,7 @@ impl Parser {
     /// Simply if there is a unary operation go save it and go one deeper, and so on if a unary is found <br>
     /// If not this is a primary and we just return self.primary() <br>
     /// unary -> ( "!" | "-" ) unary | primary ;
-    fn unary(&mut self) -> ParseResult {
+    fn unary(&mut self) -> ParseResult<Expr> {
         if self.match_types(&[TokenType::BANG, TokenType::MINUS]) {
             let operator = self.prev();
 
@@ -255,7 +375,7 @@ impl Parser {
             };
         }
 
-        return self.primary();
+        self.primary()
     }
 
     /// Primary is the only terminal in our language and can come out to STRING, NUMBER,
@@ -263,7 +383,7 @@ impl Parser {
     /// But there is a case with ( and ) where we have to evaluate an expression,
     /// which is evaluated and a grouping is returned <br>
     /// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-    fn primary(&mut self) -> ParseResult {
+    fn primary(&mut self) -> ParseResult<Expr> {
         if self.match_types(&[TokenType::FALSE]) {
             return Ok(Expr::Literal {
                 value: Value::Bool(false),
@@ -289,6 +409,12 @@ impl Parser {
         if self.match_types(&[TokenType::STRING]) {
             return Ok(Expr::Literal {
                 value: self.prev().literal.clone(),
+            });
+        }
+
+        if self.match_types(&[TokenType::IDENTIFIER]) {
+            return Ok(Expr::Var {
+                name: self.prev().clone(),
             });
         }
 

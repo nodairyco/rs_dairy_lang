@@ -1,4 +1,7 @@
+use crate::dairy_lang::interpreter::Interpreter;
+
 mod dairy_lang {
+    pub mod environment;
     pub mod expression;
     pub mod interpreter;
     pub mod parser;
@@ -20,14 +23,16 @@ fn run_interpreter() {
         panic!("ERR! More than one args found.");
     }
 
+    let mut interpreter = Interpreter::new();
+
     if args.len() == 1 {
-        dairy_hater::dairy_shell();
+        dairy_hater::dairy_shell(&mut interpreter);
     } else {
         file_name = args.nth(1).unwrap();
 
         println!("{}", file_name);
 
-        dairy_hater::run_file(file_name);
+        dairy_hater::run_file(file_name, &mut interpreter);
     }
 }
 
@@ -40,7 +45,6 @@ mod dairy_hater {
     };
 
     use crate::dairy_lang::{
-        expression::AstPrinter,
         interpreter::Interpreter,
         parser::Parser,
         scanner::Scanner,
@@ -49,17 +53,13 @@ mod dairy_hater {
 
     static HAD_ERR: AtomicBool = AtomicBool::new(false);
 
-    pub fn run_file(path: String) {
+    pub fn run_file(path: String, interpreter: &mut Interpreter) {
         let contets = fs::read_to_string(path).expect("ERR! Cannot read file");
 
-        run(contets);
-
-        if HAD_ERR.load(Ordering::Relaxed) {
-            panic!("ERR! There was an error somewhere.")
-        }
+        run(contets, interpreter);
     }
 
-    pub fn dairy_shell() {
+    pub fn dairy_shell(interpreter: &mut Interpreter) {
         println!("Running in dairy shell");
 
         loop {
@@ -74,7 +74,7 @@ mod dairy_hater {
                 break;
             }
 
-            run(req);
+            run(req, interpreter);
             HAD_ERR.store(false, Ordering::Relaxed);
         }
     }
@@ -95,17 +95,25 @@ mod dairy_hater {
         eprintln!("[line {}] Error {}: {}", line, wher, msg);
     }
 
-    fn run(file_contents: String) {
+    fn run(file_contents: String, interpreter: &mut Interpreter) {
         let scanner = Scanner::new(file_contents);
         let tokens = scanner.scan_tokens();
 
+        if HAD_ERR.load(Ordering::Relaxed) {
+            return;
+        }
+
         let mut parser = Parser::new(tokens);
 
-        let _ = AstPrinter;
+        if HAD_ERR.load(Ordering::Relaxed) {
+            return;
+        }
 
         let mut stmts = parser.parse();
 
-        let mut interpreter = Interpreter;
+        if HAD_ERR.load(Ordering::Relaxed) {
+            return;
+        }
 
         let _ = interpreter.interpret(&mut stmts);
     }

@@ -1,15 +1,24 @@
 use crate::{
     dairy_hater,
     dairy_lang::{
+        environment::{Environment, VarType},
         expression::{self, Expr},
         stmt::{self, Stmt},
         token::{Token, TokenType, Value},
     },
 };
 
-pub struct Interpreter;
+pub struct Interpreter {
+    env: Environment,
+}
 
 impl Interpreter {
+    pub fn new() -> Interpreter {
+        Interpreter {
+            env: Environment::new(),
+        }
+    }
+
     fn evaluate(&mut self, expr: &mut Expr) -> EvalResult {
         expr.accept(self)
     }
@@ -55,15 +64,34 @@ impl stmt::Visitor<StmtResult> for Interpreter {
         let val = self.evaluate(print_expr);
         match val {
             Ok(value) => Ok(println!("{}", value)),
-            Err(_) => Err(EvalError)
+            Err(_) => Err(EvalError),
         }
     }
 
     fn visit_expr_stmt(&mut self, expr_expr: &mut Expr) -> StmtResult {
         match self.evaluate(expr_expr) {
             Ok(_) => Ok(()),
-            Err(_) => Err(EvalError) 
+            Err(_) => Err(EvalError),
         }
+    }
+
+    fn visit_var_stmt(
+        &mut self,
+        name: &mut Token,
+        initializer: &mut Expr,
+        var_type: VarType,
+    ) -> StmtResult {
+        let mut val = Value::Nil;
+
+        if initializer != &mut Expr::empty() {
+            match self.evaluate(initializer) {
+                Ok(res_val) => val = res_val,
+                _ => return Err(EvalError),
+            }
+        }
+
+        self.env.define(name.lexem.clone(), val, var_type);
+        Ok(())
     }
 }
 
@@ -196,5 +224,33 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 Err(EvalError)
             }
         }
+    }
+
+    fn visit_var(&mut self, var_name: &mut Token) -> EvalResult {
+        Ok(self.env.get(var_name).clone())
+    }
+
+    fn visit_assign(&mut self, var_name: &mut Token, val_expr: &mut Expr) -> EvalResult {
+        let var_type: &VarType = self.env.get_type(var_name);
+        let var_to_be_assigned: &Value = self.env.get(var_name);
+
+        if var_type == &VarType::VAL && var_to_be_assigned != &Value::Nil {
+            dairy_hater::error_token(
+                var_name,
+                String::from("Cannot assign a different value to a constant member"),
+            );
+
+            return Err(EvalError);
+        }
+
+        let var_val: Value;
+
+        match self.evaluate(val_expr) {
+            Ok(value) => var_val = value,
+            Err(_) => return Err(EvalError),
+        }
+
+        self.env.assign(var_name, &var_val);
+        Ok(var_val)
     }
 }

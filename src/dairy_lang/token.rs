@@ -63,9 +63,10 @@ pub enum Value {
     Number(f64),
     Str(String),
     Bool(bool),
+    Void,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexem: String,
@@ -91,6 +92,7 @@ impl fmt::Display for Value {
             Value::Number(n) => write!(f, "{}", n),
             Value::Str(str) => write!(f, "{}", str),
             Value::Bool(bool) => write!(f, "{}", bool),
+            _ => write!(f, ""),
         }
     }
 }

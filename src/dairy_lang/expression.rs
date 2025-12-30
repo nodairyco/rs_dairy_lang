@@ -1,6 +1,6 @@
-use crate::dairy_lang::{expression, token::{Token, Value}};
+use crate::dairy_lang::token::{Token, Value};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,
@@ -17,6 +17,13 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
+    Var {
+        name: Token,
+    },
+    Assign {
+        name: Token,
+        value: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -30,6 +37,8 @@ impl Expr {
             Expr::Grouping { expression } => visitor.visit_grouping(expression.as_mut()),
             Expr::Literal { value } => visitor.visit_literal(value),
             Expr::Unary { operator, right } => visitor.visit_unary(operator, right.as_mut()),
+            Expr::Var { name } => visitor.visit_var(name),
+            Expr::Assign { name, value } => visitor.visit_assign(name, value),
         }
     }
 
@@ -43,47 +52,6 @@ pub trait Visitor<R> {
     fn visit_grouping(&mut self, expr: &mut Expr) -> R;
     fn visit_literal(&mut self, val: &mut Value) -> R;
     fn visit_unary(&mut self, operator: &mut Token, right: &mut Expr) -> R;
-}
-
-pub struct AstPrinter;
-
-impl AstPrinter {
-    pub fn print(&mut self, expr: &mut Expr) -> String {
-        expr.accept(self)
-    }
-
-    fn paranthesize(&mut self, name: &String, exprs: Vec<&mut Expr>) -> String {
-        let mut to_ret = String::new();
-
-        to_ret.push_str("(");
-
-        to_ret.push_str(&name);
-
-        for expr in exprs {
-            to_ret.push(' ');
-            to_ret.push_str(&self.print(expr));
-        }
-
-        to_ret.push(')');
-
-        to_ret
-    }
-}
-
-impl expression::Visitor<String> for AstPrinter {
-    fn visit_binary(&mut self, left: &mut Expr, operator: &mut Token, right: &mut Expr) -> String {
-        self.paranthesize(&operator.lexem, vec![left, right])
-    }
-
-    fn visit_grouping(&mut self, expr: &mut Expr) -> String {
-        self.paranthesize(&String::from("group"), vec![expr])
-    }
-
-    fn visit_literal(&mut self, val: &mut Value) -> String {
-        format!("{}", val) 
-    }
-
-    fn visit_unary(&mut self, operator: &mut Token, right: &mut Expr) -> String {
-        self.paranthesize(&operator.lexem, vec![right])
-    }
+    fn visit_var(&mut self, var_name: &mut Token) -> R;
+    fn visit_assign(&mut self, var_name: &mut Token, val: &mut Expr) -> R;
 }
