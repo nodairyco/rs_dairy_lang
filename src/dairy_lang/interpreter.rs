@@ -52,6 +52,28 @@ impl Interpreter {
     fn execute_stmt(&mut self, stmt: &mut Stmt) -> StmtResult {
         stmt.accept(self)
     }
+
+    fn execute_block(&mut self, stmts: &mut Vec<Stmt>, environment: Environment) {
+        let prev_env = self.env.clone();
+
+        self.env = environment;
+
+        let mut had_err: Option<EvalError> = None;
+
+        for stmt in stmts {
+            match self.execute_stmt(stmt) {
+                Err(_) => {
+                    had_err = Some(EvalError);
+                    break;
+                }
+                _ => {}
+            };
+        }
+
+        if !had_err.is_none() {
+            self.env = prev_env;
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -91,6 +113,12 @@ impl stmt::Visitor<StmtResult> for Interpreter {
         }
 
         self.env.define(name.lexem.clone(), val, var_type);
+        Ok(())
+    }
+
+    fn visit_block(&mut self, stmts: &mut Vec<Stmt>) -> StmtResult {
+        self.execute_block(stmts, Environment::from_enclosing_env(self.env.clone()));
+
         Ok(())
     }
 }

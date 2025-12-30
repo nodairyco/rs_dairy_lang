@@ -12,19 +12,30 @@ pub enum VarType {
     NONE,
 }
 
+#[derive(Clone)]
 struct EnvValue {
     value: Value,
     var_type: VarType,
 }
 
+#[derive(Clone)]
 pub struct Environment {
     values: HashMap<String, EnvValue>,
+    enclosing: Option<Box<Environment>>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Environment {
             values: HashMap::new(),
+            enclosing: None,
+        }
+    }
+
+    pub fn from_enclosing_env(enclosing_env: Self) -> Self {
+        Environment {
+            enclosing: Some(Box::from(enclosing_env)),
+            ..Self::new()
         }
     }
 
@@ -39,6 +50,11 @@ impl Environment {
                 .get(&name.lexem)
                 .expect("var not is there")
                 .value;
+        }
+
+        match &self.enclosing {
+            Some(env) => return env.get(name),
+            None => {}
         }
 
         dairy_hater::error_token(&name, format!("Undefined variable, {}", name.lexem));
@@ -70,6 +86,11 @@ impl Environment {
             );
 
             return;
+        }
+
+        match &mut self.enclosing {
+            Some(enclosing_env) => enclosing_env.assign(name, value),
+            None => {}
         }
 
         dairy_hater::error_token(name, String::from("Variable with this name does not exist"));

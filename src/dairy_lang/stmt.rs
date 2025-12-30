@@ -8,6 +8,7 @@ pub enum Stmt {
         initializer: Expr,
         var_type: VarType,
     },
+    Block(Vec<Stmt>),
 }
 
 impl Stmt {
@@ -20,11 +21,16 @@ impl Stmt {
                 initializer,
                 var_type,
             } => visitor.visit_var_stmt(name, initializer, var_type.clone()),
+            Stmt::Block(stmts) => visitor.visit_block(stmts),
         }
     }
 
     pub fn new_var(name: Token, initializer: Expr, var_type: VarType) -> Stmt {
-        Stmt::Var { name, initializer, var_type }
+        Stmt::Var {
+            name,
+            initializer,
+            var_type,
+        }
     }
 }
 
@@ -32,4 +38,5 @@ pub trait Visitor<R> {
     fn visit_print_stmt(&mut self, print_expr: &mut Expr) -> R;
     fn visit_expr_stmt(&mut self, expr_expr: &mut Expr) -> R;
     fn visit_var_stmt(&mut self, name: &mut Token, initializer: &mut Expr, var_type: VarType) -> R;
+    fn visit_block(&mut self, stmts: &mut Vec<Stmt>) -> R;
 }

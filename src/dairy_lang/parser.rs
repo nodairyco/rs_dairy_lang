@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::{
     dairy_hater::{self},
     dairy_lang::{
@@ -121,11 +123,28 @@ impl Parser {
 
     /// Get a statement from the current expression
     fn statement(&mut self) -> ParseResult<Stmt> {
-        if self.match_types(&[TokenType::PRINT]) {
-            return self.print_stmt();
+        match self.get_curr_type() {
+            TokenType::PRINT => self.print_stmt(),
+            TokenType::LEFT_BRACE => Ok(Stmt::Block(self.block())),
+            _ => self.expr_stmt(),
+        }
+    }
+
+    /// Parse a block of code and return a vector of statements in it
+    /// block -> "{" declaration* "}"
+    fn block(&mut self) -> Vec<Stmt> {
+        let mut stmts = vec![];
+
+        while !self.check_curr_type(TokenType::RIGHT_BRACE) && !self.is_at_end() {
+            stmts.push(self.statement().unwrap());
         }
 
-        self.expr_stmt()
+        let _ = self.consume(
+            TokenType::RIGHT_BRACE,
+            String::from("Expect '{' after a block"),
+        );
+
+        stmts
     }
 
     /// Get a print statement from the current expression
@@ -479,6 +498,14 @@ impl Parser {
         }
 
         return false;
+    }
+
+    fn get_curr_type(&mut self) -> TokenType {
+        let curr_type: TokenType = self.tokens[self.current as usize].token_type;
+
+        self.advance();
+
+        curr_type
     }
 
     fn error(token: &Token, msg: String) -> ParseError {
