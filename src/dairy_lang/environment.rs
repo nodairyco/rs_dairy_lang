@@ -54,11 +54,11 @@ impl Environment {
 
         match &self.enclosing {
             Some(env) => return env.get(name),
-            None => {}
+            None => {
+                dairy_hater::error_token(&name, format!("Undefined variable, {}", name.lexem));
+                &Value::Void
+            }
         }
-
-        dairy_hater::error_token(&name, format!("Undefined variable, {}", name.lexem));
-        &Value::Void
     }
 
     pub fn get_type(&self, name: &Token) -> &VarType {

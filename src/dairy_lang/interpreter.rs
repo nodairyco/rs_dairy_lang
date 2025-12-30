@@ -58,21 +58,16 @@ impl Interpreter {
 
         self.env = environment;
 
-        let mut had_err: Option<EvalError> = None;
-
         for stmt in stmts {
             match self.execute_stmt(stmt) {
                 Err(_) => {
-                    had_err = Some(EvalError);
                     break;
                 }
                 _ => {}
             };
         }
 
-        if !had_err.is_none() {
-            self.env = prev_env;
-        }
+        self.env = prev_env;
     }
 }
 

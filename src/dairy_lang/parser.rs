@@ -136,12 +136,12 @@ impl Parser {
         let mut stmts = vec![];
 
         while !self.check_curr_type(TokenType::RIGHT_BRACE) && !self.is_at_end() {
-            stmts.push(self.statement().unwrap());
+            stmts.push(self.declaration());
         }
 
         let _ = self.consume(
             TokenType::RIGHT_BRACE,
-            String::from("Expect '{' after a block"),
+            String::from("Expect '}' after a block"),
         );
 
         stmts
@@ -456,7 +456,10 @@ impl Parser {
             };
         }
 
-        Err(Self::error(self.peek(), "Unemplemented error".to_string()))
+        Err(Self::error(
+            self.prev(),
+            "Variable does not exist".to_string(),
+        ))
     }
 
     /// Get the Token at the current addr
@@ -501,11 +504,9 @@ impl Parser {
     }
 
     fn get_curr_type(&mut self) -> TokenType {
-        let curr_type: TokenType = self.tokens[self.current as usize].token_type;
-
+        let token_type = self.peek().token_type;
         self.advance();
-
-        curr_type
+        token_type
     }
 
     fn error(token: &Token, msg: String) -> ParseError {
@@ -540,6 +541,8 @@ impl Parser {
                 TokenType::WHILE => return,
                 TokenType::PRINT => return,
                 TokenType::RETURN => return,
+                TokenType::RIGHT_BRACE => return,
+                TokenType::LEFT_BRACE => return,
                 _ => {}
             }
 
