@@ -66,8 +66,12 @@ impl Scanner {
         }
 
         // Push the end of file token to the end of the token list
-        self.tokens
-            .push(Token::new(TokenType::EOF, "".to_string(), self.line, Value::Nil));
+        self.tokens.push(Token::new(
+            TokenType::EOF,
+            "".to_string(),
+            self.line,
+            Value::Nil,
+        ));
 
         return self.tokens.clone();
     }
@@ -138,8 +142,7 @@ impl Scanner {
                             }
                         }
                     }
-                }
-                else {
+                } else {
                     self.add_token(TokenType::SLASH);
                 }
             }
@@ -148,6 +151,20 @@ impl Scanner {
             '\t' => {}
             '\n' => self.line = self.line + 1,
             '"' => self.handle_string(),
+            '[' => {
+                if self.match_next('[') {
+                    self.add_token(TokenType::DOUBLE_SQUARE_LEFT);
+                } else {
+                    dairy_hater::error(self.line, "Unexpected character".to_string());
+                }
+            }
+            ']' => {
+                if self.match_next(']') {
+                    self.add_token(TokenType::DOUBLE_SQUARE_RIGHT);
+                } else {
+                    dairy_hater::error(self.line, "Unexpected character".to_string());
+                }
+            }
             rest => {
                 if Self::is_digit(&rest) {
                     self.handle_number();
@@ -294,8 +311,8 @@ impl Scanner {
         let token_type_opt = Self::KEYWORDS.iter().find(|item| item.0.eq(text));
 
         let token_type = match token_type_opt {
-            Some(t) => t.1, 
-            None => TokenType::IDENTIFIER
+            Some(t) => t.1,
+            None => TokenType::IDENTIFIER,
         };
 
         self.add_token(token_type);

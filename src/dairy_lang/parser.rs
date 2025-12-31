@@ -126,8 +126,40 @@ impl Parser {
         match self.get_curr_type() {
             TokenType::PRINT => self.print_stmt(),
             TokenType::LEFT_BRACE => Ok(Stmt::Block(self.block())),
+            TokenType::IF => self.if_stmt(),
             _ => self.expr_stmt(),
         }
+    }
+
+    fn if_stmt(&mut self) -> ParseResult<Stmt> {
+        let _ = self.consume(
+            TokenType::DOUBLE_SQUARE_LEFT,
+            String::from("Expected '[[' before an if statement condition"),
+        );
+
+        let condition_expr: Expr;
+
+        match self.equality() {
+            Ok(expr) => condition_expr = expr,
+            Err(_) => return Err(ParseError),
+        };
+
+        let _ = self.consume(
+            TokenType::DOUBLE_SQUARE_RIGHT,
+            String::from("Expected ']]' after an if statement condition"),
+        );
+
+        let if_block: Stmt;
+
+        match self.statement() {
+            Ok(stmt) => if_block = stmt,
+            Err(_) => return Err(ParseError),
+        };
+
+        Ok(Stmt::If {
+            condition: condition_expr,
+            if_block: Box::from(if_block),
+        })
     }
 
     /// Parse a block of code and return a vector of statements in it
@@ -514,6 +546,8 @@ impl Parser {
         ParseError
     }
 
+    /// Consumes the current token and returns the next one. <br>
+    /// Throws error if the current token is not of the given type.
     fn consume(&mut self, token_type: TokenType, msg: String) -> Result<&Token, ParseError> {
         if self.check_curr_type(token_type) {
             return Ok(self.advance());

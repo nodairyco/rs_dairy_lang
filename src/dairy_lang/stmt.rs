@@ -9,6 +9,10 @@ pub enum Stmt {
         var_type: VarType,
     },
     Block(Vec<Stmt>),
+    If {
+        condition: Expr,
+        if_block: Box<Stmt>,
+    },
 }
 
 impl Stmt {
@@ -22,6 +26,10 @@ impl Stmt {
                 var_type,
             } => visitor.visit_var_stmt(name, initializer, var_type.clone()),
             Stmt::Block(stmts) => visitor.visit_block(stmts),
+            Stmt::If {
+                condition,
+                if_block,
+            } => visitor.visit_if(condition, if_block),
         }
     }
 
@@ -39,4 +47,5 @@ pub trait Visitor<R> {
     fn visit_expr_stmt(&mut self, expr_expr: &mut Expr) -> R;
     fn visit_var_stmt(&mut self, name: &mut Token, initializer: &mut Expr, var_type: VarType) -> R;
     fn visit_block(&mut self, stmts: &mut Vec<Stmt>) -> R;
+    fn visit_if(&mut self, condition: &mut Expr, if_block: &mut Stmt) -> R;
 }

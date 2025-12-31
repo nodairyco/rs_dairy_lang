@@ -28,6 +28,8 @@ pub enum TokenType {
     GREATER_EQUAL,
     LESS,
     LESS_EQUAL,
+    DOUBLE_SQUARE_LEFT,
+    DOUBLE_SQUARE_RIGHT,
 
     // Literals.
     IDENTIFIER,

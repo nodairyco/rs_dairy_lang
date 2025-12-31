@@ -116,6 +116,31 @@ impl stmt::Visitor<StmtResult> for Interpreter {
 
         Ok(())
     }
+
+    fn visit_if(&mut self, condition: &mut Expr, if_block: &mut Stmt) -> StmtResult {
+        let condition_value: Value;
+
+        match self.evaluate(condition) {
+            Err(_) => return Err(EvalError),
+            Ok(val) => condition_value = val,
+        };
+
+        let mut condition_bool = false;
+
+        match condition_value {
+            Value::Bool(bool) => condition_bool = bool,
+            _ => dairy_hater::error(
+                0,
+                "Cannot have a none bool value in an if statement's condition".to_string(),
+            ),
+        };
+
+        if condition_bool {
+            return self.execute_stmt(if_block);
+        }
+
+        Ok(())
+    }
 }
 
 impl expression::Visitor<EvalResult> for Interpreter {
