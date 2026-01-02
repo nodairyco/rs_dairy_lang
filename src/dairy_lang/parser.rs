@@ -123,10 +123,19 @@ impl Parser {
 
     /// Get a statement from the current expression
     fn statement(&mut self) -> ParseResult<Stmt> {
-        match self.get_curr_type() {
-            TokenType::PRINT => self.print_stmt(),
-            TokenType::LEFT_BRACE => Ok(Stmt::Block(self.block())),
-            TokenType::IF => self.if_stmt(),
+        match self.get_curr_type_non_advance() {
+            TokenType::PRINT => {
+                self.advance();
+                self.print_stmt()
+            }
+            TokenType::LEFT_BRACE => {
+                self.advance();
+                Ok(Stmt::Block(self.block()))
+            }
+            TokenType::IF => {
+                self.advance();
+                self.if_stmt()
+            }
             _ => self.expr_stmt(),
         }
     }
@@ -435,63 +444,46 @@ impl Parser {
     /// which is evaluated and a grouping is returned <br>
     /// primary -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
     fn primary(&mut self) -> ParseResult<Expr> {
-        if self.match_types(&[TokenType::FALSE]) {
-            return Ok(Expr::Literal {
+        match self.get_curr_type() {
+            TokenType::FALSE => Ok(Expr::Literal {
                 value: Value::Bool(false),
-            });
-        }
-
-        if self.match_types(&[TokenType::TRUE]) {
-            return Ok(Expr::Literal {
+            }),
+            TokenType::TRUE => Ok(Expr::Literal {
                 value: Value::Bool(true),
-            });
-        }
-
-        if self.match_types(&[TokenType::VICTIM]) {
-            return Ok(Expr::Literal { value: Value::Nil });
-        }
-
-        if self.match_types(&[TokenType::NUMBER]) {
-            return Ok(Expr::Literal {
+            }),
+            TokenType::VICTIM => Ok(Expr::Literal { value: Value::Nil }),
+            TokenType::NUMBER => Ok(Expr::Literal {
                 value: self.prev().literal.clone(),
-            });
-        }
-
-        if self.match_types(&[TokenType::STRING]) {
-            return Ok(Expr::Literal {
+            }),
+            TokenType::STRING => Ok(Expr::Literal {
                 value: self.prev().literal.clone(),
-            });
-        }
-
-        if self.match_types(&[TokenType::IDENTIFIER]) {
-            return Ok(Expr::Var {
+            }),
+            TokenType::IDENTIFIER => Ok(Expr::Var {
                 name: self.prev().clone(),
-            });
-        }
+            }),
+            TokenType::LEFT_PAREN => {
+                let expr = self.expression();
 
-        if self.match_types(&[TokenType::LEFT_PAREN]) {
-            let expr = self.expression();
-
-            match self.consume(
-                TokenType::RIGHT_PAREN,
-                String::from("Expect ')' after expression."),
-            ) {
-                Ok(_) => match expr {
-                    Ok(res) => {
-                        return Ok(Expr::Grouping {
-                            expression: Box::new(res),
-                        });
-                    }
+                match self.consume(
+                    TokenType::RIGHT_PAREN,
+                    String::from("Expect ')' after expression."),
+                ) {
+                    Ok(_) => match expr {
+                        Ok(res) => {
+                            return Ok(Expr::Grouping {
+                                expression: Box::new(res),
+                            });
+                        }
+                        Err(err) => return Err(err),
+                    },
                     Err(err) => return Err(err),
-                },
-                Err(err) => return Err(err),
-            };
+                };
+            }
+            _ => Err(Self::error(
+                self.prev(),
+                "Variable does not exist".to_string(),
+            )),
         }
-
-        Err(Self::error(
-            self.prev(),
-            "Variable does not exist".to_string(),
-        ))
     }
 
     /// Get the Token at the current addr
@@ -539,6 +531,10 @@ impl Parser {
         let token_type = self.peek().token_type;
         self.advance();
         token_type
+    }
+
+    fn get_curr_type_non_advance(&self) -> TokenType {
+        self.peek().token_type
     }
 
     fn error(token: &Token, msg: String) -> ParseError {
