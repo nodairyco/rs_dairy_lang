@@ -12,7 +12,7 @@ pub enum VarType {
     NONE,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct EnvValue {
     value: Value,
     var_type: VarType,
@@ -76,8 +76,14 @@ impl Environment {
     pub fn assign(&mut self, name: &Token, value: &Value) {
         if self.values.contains_key(&name.lexem) {
             let var_type = self.get_type(name);
+            let var = self.get(name);
 
-            self.values.insert(
+            if var_type == &VarType::VAL && var != &Value::Nil {
+                dairy_hater::error_token(name, String::from("Cannot assign to a constant"));
+                return;
+            }
+
+            let name_env_val_tuple = (
                 name.lexem.clone(),
                 EnvValue {
                     value: value.clone(),
@@ -85,11 +91,17 @@ impl Environment {
                 },
             );
 
+            self.values
+                .insert(name_env_val_tuple.0, name_env_val_tuple.1);
+
             return;
         }
 
         match &mut self.enclosing {
-            Some(enclosing_env) => enclosing_env.assign(name, value),
+            Some(enclosing_env) => {
+                enclosing_env.assign(name, value);
+                return;
+            }
             None => {}
         }
 

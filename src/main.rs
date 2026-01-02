@@ -30,8 +30,6 @@ fn run_interpreter() {
     } else {
         file_name = args.nth(1).unwrap();
 
-        println!("{}", file_name);
-
         dairy_hater::run_file(file_name, &mut interpreter);
     }
 }

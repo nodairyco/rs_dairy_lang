@@ -53,10 +53,10 @@ impl Interpreter {
         stmt.accept(self)
     }
 
-    fn execute_block(&mut self, stmts: &mut Vec<Stmt>, environment: Environment) {
-        let prev_env = self.env.clone();
+    fn execute_block(&mut self, stmts: &mut Vec<Stmt>) {
+        let new_env = Environment::from_enclosing_env(self.env.clone());
 
-        self.env = environment;
+        self.env = new_env;
 
         for stmt in stmts {
             match self.execute_stmt(stmt) {
@@ -66,8 +66,6 @@ impl Interpreter {
                 _ => {}
             };
         }
-
-        self.env = prev_env;
     }
 }
 
@@ -112,7 +110,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
     }
 
     fn visit_block(&mut self, stmts: &mut Vec<Stmt>) -> StmtResult {
-        self.execute_block(stmts, Environment::from_enclosing_env(self.env.clone()));
+        self.execute_block(stmts);
 
         Ok(())
     }
