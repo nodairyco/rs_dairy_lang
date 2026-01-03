@@ -284,7 +284,7 @@ impl Parser {
     /// Assignment
     /// assign -> IDNETIFIER "=" assignment | equality
     fn assignment(&mut self) -> ParseResult<Expr> {
-        let expr_res: ParseResult<Expr> = self.equality();
+        let expr_res: ParseResult<Expr> = self.logical();
 
         if self.match_types(&[TokenType::EQUAL]) {
             let previous_token: Token = self.prev().clone();
@@ -301,10 +301,7 @@ impl Parser {
                         _ => Err(ParseError),
                     },
                     _ => {
-                        dairy_hater::error_token(
-                            &previous_token,
-                            String::from("Invalid assignment target."),
-                        );
+                        Self::error(&previous_token, String::from("Invalid assignment target."));
                         Err(ParseError)
                     }
                 },
@@ -315,152 +312,97 @@ impl Parser {
         expr_res
     }
 
+    /// Logical and, or, and xor operators
+    /// logical -> equality (("and" | "or" | "xor") equality)* ;
+    fn logical(&mut self) -> ParseResult<Expr> {
+        self.create_binary_expr(
+            &mut |arg: &mut Self| arg.equality(),
+            &[TokenType::AND, TokenType::OR, TokenType::XOR],
+        )
+    }
+
     /// Mapping for the equality expression type to a rust function <br>
     /// Initially expr is created from comparision expression. <br>
     /// Then while the next couple types are equality types,
     /// we get the token and the the right sub tree and add it to the expression <br>
     /// equality -> comparison (("!=" | "==") comparison )* ;
     fn equality(&mut self) -> ParseResult<Expr> {
-        let mut expr = self.comparison();
-
-        while self.match_types(&[TokenType::BANG_EQUAL, TokenType::EQUAL_EQUAL]) {
-            let operator = self.prev();
-
-            let op_new = Token::new(
-                operator.token_type,
-                operator.lexem.clone(),
-                operator.line,
-                operator.literal.clone(),
-            );
-
-            let right = self.comparison();
-
-            match expr {
-                Err(_) => break,
-                Ok(res) => {
-                    expr = match right {
-                        Ok(res_r) => Ok(Expr::Binary {
-                            left: Box::new(res),
-                            operator: op_new,
-                            right: Box::new(res_r),
-                        }),
-                        Err(err_r) => Err(err_r),
-                    }
-                }
-            };
-        }
-
-        expr
+        self.create_binary_expr(
+            &mut |arg: &mut Self| arg.comparison(),
+            &[TokenType::EQUAL_EQUAL, TokenType::BANG_EQUAL],
+        )
     }
 
     /// Works the same way as equality,but one level lower <br>
     /// comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
     fn comparison(&mut self) -> ParseResult<Expr> {
-        let mut expr = self.term();
+        self.create_binary_expr(
+            &mut |arg: &mut Self| arg.modulos(),
+            &[
+                TokenType::GREATER,
+                TokenType::GREATER_EQUAL,
+                TokenType::LESS,
+                TokenType::LESS_EQUAL,
+            ],
+        )
+    }
 
-        while self.match_types(&[
-            TokenType::GREATER,
-            TokenType::GREATER_EQUAL,
-            TokenType::LESS,
-            TokenType::LESS_EQUAL,
-        ]) {
-            let operator = self.prev();
-
-            let op_new = Token::new(
-                operator.token_type,
-                operator.lexem.clone(),
-                operator.line,
-                operator.literal.clone(),
-            );
-
-            let right = self.term();
-
-            match expr {
-                Err(_) => break,
-                Ok(res) => {
-                    expr = match right {
-                        Ok(res_r) => Ok(Expr::Binary {
-                            left: Box::new(res),
-                            operator: op_new,
-                            right: Box::new(res_r),
-                        }),
-                        Err(err_r) => Err(err_r),
-                    }
-                }
-            };
-        }
-
-        expr
+    /// modulos
+    fn modulos(&mut self) -> ParseResult<Expr> {
+        self.create_binary_expr(&mut |arg: &mut Self| arg.term(), &[TokenType::MODULO])
     }
 
     /// Works in the same way as comparison <br>
-    /// temr -> factor ( ( "-" | "+" ) factor )* ;
+    /// term -> factor ( ( "-" | "+" ) factor )* ;
     fn term(&mut self) -> ParseResult<Expr> {
-        let mut expr = self.factor();
-
-        while self.match_types(&[TokenType::MINUS, TokenType::PLUS]) {
-            let operator = self.prev();
-
-            let op_new = Token::new(
-                operator.token_type,
-                operator.lexem.clone(),
-                operator.line,
-                operator.literal.clone(),
-            );
-
-            let right = self.factor();
-
-            match expr {
-                Err(_) => break,
-                Ok(res) => {
-                    expr = match right {
-                        Ok(res_r) => Ok(Expr::Binary {
-                            left: Box::new(res),
-                            operator: op_new,
-                            right: Box::new(res_r),
-                        }),
-                        Err(err_r) => Err(err_r),
-                    }
-                }
-            };
-        }
-
-        expr
+        self.create_binary_expr(
+            &mut |arg: &mut Self| arg.factor(),
+            &[TokenType::MINUS, TokenType::PLUS],
+        )
     }
 
     /// Works in the same way as term <br>
     /// factor -> unary ( ( "/" | "*" ) unary )* ;
     fn factor(&mut self) -> ParseResult<Expr> {
-        let mut expr = self.unary();
+        self.create_binary_expr(
+            &mut |arg: &mut Self| arg.unary(),
+            &[TokenType::SLASH, TokenType::STAR],
+        )
+    }
 
-        while self.match_types(&[TokenType::SLASH, TokenType::STAR]) {
-            let operator = self.prev();
+    /// Parse a binary expression with the next level operation being the provided next_funct function,
+    /// and necessary token types being the given token_types array
+    fn create_binary_expr<F>(
+        &mut self,
+        next_funct: &mut F,
+        token_types: &[TokenType],
+    ) -> ParseResult<Expr>
+    where
+        F: FnMut(&mut Self) -> ParseResult<Expr>,
+    {
+        let mut left: ParseResult<Expr> = next_funct(self);
 
-            let op_new = Token::new(
-                operator.token_type,
-                operator.lexem.clone(),
-                operator.line,
-                operator.literal.clone(),
-            );
+        while self.match_types(token_types) {
+            let operator: Token = self.prev().clone();
 
-            let right = self.unary();
+            let right: ParseResult<Expr> = next_funct(self);
 
-            match expr {
-                Err(_) => break,
-                Ok(res) => {
-                    expr = match right {
-                        Ok(res_r) => Ok(Expr::Binary {
-                            left: Box::new(res),
-                            operator: op_new,
-                            right: Box::new(res_r),
-                        }),
-                        Err(err_r) => Err(err_r),
+            match left {
+                Err(_) => return Err(ParseError),
+                Ok(res_left) => match right {
+                    Err(_) => return Err(ParseError),
+                    Ok(res_right) => {
+                        left = Ok(Expr::Binary {
+                            left: Box::new(res_left),
+                            operator,
+                            right: Box::new(res_right),
+                        })
                     }
-                }
-            };
+                },
+            }
         }
 
-        expr
+        left
     }
 
     /// Simply if there is a unary operation go save it and go one deeper, and so on if a unary is found <br>
@@ -468,20 +410,13 @@ impl Parser {
     /// unary -> ( "!" | "-" ) unary | primary ;
     fn unary(&mut self) -> ParseResult<Expr> {
         if self.match_types(&[TokenType::BANG, TokenType::MINUS]) {
-            let operator = self.prev();
-
-            let op_new = Token::new(
-                operator.token_type,
-                operator.lexem.clone(),
-                operator.line,
-                operator.literal.clone(),
-            );
+            let operator = self.prev().clone();
 
             let right = self.unary();
 
             return match right {
                 Ok(res) => Ok(Expr::Unary {
-                    operator: op_new,
+                    operator: operator,
                     right: Box::new(res),
                 }),
                 Err(err) => Err(err),

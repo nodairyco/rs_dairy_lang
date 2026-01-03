@@ -43,8 +43,7 @@ impl Interpreter {
     pub fn interpret(&mut self, stmts: &mut Vec<Stmt>) {
         for stmt in stmts {
             match self.execute_stmt(stmt) {
-                Ok(_) => (),
-                Err(_) => panic!(),
+                _ => (),
             }
         }
     }
@@ -219,6 +218,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 TokenType::LESS => Ok(Value::Bool(l < r)),
                 TokenType::GREATER_EQUAL => Ok(Value::Bool(l >= r)),
                 TokenType::LESS_EQUAL => Ok(Value::Bool(l <= r)),
+                TokenType::MODULO => Ok(Value::Number(l % r)),
                 _ => {
                     dairy_hater::error_token(
                         &operator,
@@ -260,6 +260,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
             (Value::Bool(l), Value::Bool(r)) => match operator.token_type {
                 TokenType::AND => Ok(Value::Bool(l && r)),
                 TokenType::OR => Ok(Value::Bool(l || r)),
+                TokenType::XOR => Ok(Value::Bool(l ^ r)),
                 _ => {
                     dairy_hater::error_token(
                         &operator,

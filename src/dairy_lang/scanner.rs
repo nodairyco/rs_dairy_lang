@@ -34,6 +34,7 @@ impl Scanner {
 
     const KEYWORDS: &[(&str, TokenType)] = &[
         ("and", TokenType::AND),
+        ("xor", TokenType::XOR),
         ("class", TokenType::CLASS),
         ("else", TokenType::ELSE),
         ("false", TokenType::FALSE),
@@ -97,6 +98,7 @@ impl Scanner {
             '+' => self.add_token(TokenType::PLUS),
             ';' => self.add_token(TokenType::SEMICOLON),
             '*' => self.add_token(TokenType::STAR),
+            '%' => self.add_token(TokenType::MODULO),
             '!' => {
                 let token_type = match self.match_next('=') {
                     true => TokenType::BANG_EQUAL,

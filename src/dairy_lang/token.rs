@@ -18,6 +18,7 @@ pub enum TokenType {
     SEMICOLON,
     SLASH,
     STAR,
+    MODULO,
 
     // One or two character tokens.
     BANG,
@@ -38,6 +39,7 @@ pub enum TokenType {
 
     // Keywords.
     AND,
+    XOR,
     CLASS,
     ELSE,
     FALSE,
