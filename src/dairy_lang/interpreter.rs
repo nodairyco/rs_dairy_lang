@@ -67,6 +67,30 @@ impl Interpreter {
             };
         }
     }
+
+    fn evaluate_condition(
+        &mut self,
+        condition: &mut Expr,
+        caller: &mut Token,
+    ) -> Result<bool, EvalError> {
+        let condition_value: Value;
+
+        match self.evaluate(condition) {
+            Err(_) => return Err(EvalError),
+            Ok(val) => condition_value = val,
+        };
+
+        match condition_value {
+            Value::Bool(bool) => Ok(bool),
+            _ => {
+                dairy_hater::error_token(
+                    caller,
+                    "Cannot have a none bool value in an if statement's condition".to_string(),
+                );
+                Err(EvalError)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -115,26 +139,49 @@ impl stmt::Visitor<StmtResult> for Interpreter {
         Ok(())
     }
 
-    fn visit_if(&mut self, condition: &mut Expr, if_block: &mut Stmt) -> StmtResult {
-        let condition_value: Value;
+    fn visit_if(
+        &mut self,
+        condition: &mut Expr,
+        if_block: &mut Stmt,
+        caller: &mut Token,
+    ) -> StmtResult {
+        let condition_bool: bool;
 
-        match self.evaluate(condition) {
-            Err(_) => return Err(EvalError),
-            Ok(val) => condition_value = val,
-        };
-
-        let mut condition_bool = false;
-
-        match condition_value {
-            Value::Bool(bool) => condition_bool = bool,
-            _ => dairy_hater::error(
-                0,
-                "Cannot have a none bool value in an if statement's condition".to_string(),
-            ),
+        match self.evaluate_condition(condition, caller) {
+            Ok(bool) => condition_bool = bool,
+            _ => return Err(EvalError),
         };
 
         if condition_bool {
             return self.execute_stmt(if_block);
+        }
+
+        Ok(())
+    }
+
+    fn visit_while(
+        &mut self,
+        condition: &mut Expr,
+        while_block: &mut Stmt,
+        caller: &mut Token,
+    ) -> StmtResult {
+        let mut condition_bool: bool;
+
+        match self.evaluate_condition(condition, caller) {
+            Ok(bool) => condition_bool = bool,
+            _ => return Err(EvalError),
+        };
+
+        while condition_bool {
+            match self.execute_stmt(while_block) {
+                Err(_) => return Err(EvalError),
+                _ => (),
+            }
+
+            match self.evaluate_condition(condition, caller) {
+                Ok(bool) => condition_bool = bool,
+                _ => return Err(EvalError),
+            }
         }
 
         Ok(())

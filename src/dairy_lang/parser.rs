@@ -136,15 +136,64 @@ impl Parser {
                 self.advance();
                 self.if_stmt()
             }
+            TokenType::WHILE => {
+                self.advance();
+                self.while_stmt()
+            }
             _ => self.expr_stmt(),
         }
     }
 
+    fn while_stmt(&mut self) -> ParseResult<Stmt> {
+        let caller: Token = self.prev().clone();
+
+        match self.consume(
+            TokenType::DOUBLE_SQUARE_LEFT,
+            String::from("Expected '[[' before a while statement condition"),
+        ) {
+            Err(_) => return Err(ParseError),
+            _ => {}
+        };
+
+        let cond_expr: Expr;
+
+        match self.equality() {
+            Ok(expr) => cond_expr = expr,
+            _ => return Err(ParseError),
+        };
+
+        match self.consume(
+            TokenType::DOUBLE_SQUARE_RIGHT,
+            String::from("Expected ']]' after a while statement condition"),
+        ) {
+            Err(_) => return Err(ParseError),
+            _ => {}
+        };
+
+        let while_block: Stmt;
+
+        match self.statement() {
+            Ok(stmt) => while_block = stmt,
+            _ => return Err(ParseError),
+        };
+
+        Ok(Stmt::While {
+            condition: cond_expr,
+            block: Box::new(while_block),
+            caller,
+        })
+    }
+
     fn if_stmt(&mut self) -> ParseResult<Stmt> {
-        let _ = self.consume(
+        let caller: Token = self.prev().clone();
+
+        match self.consume(
             TokenType::DOUBLE_SQUARE_LEFT,
             String::from("Expected '[[' before an if statement condition"),
-        );
+        ) {
+            Err(_) => return Err(ParseError),
+            _ => {}
+        };
 
         let condition_expr: Expr;
 
@@ -153,10 +202,13 @@ impl Parser {
             Err(_) => return Err(ParseError),
         };
 
-        let _ = self.consume(
+        match self.consume(
             TokenType::DOUBLE_SQUARE_RIGHT,
             String::from("Expected ']]' after an if statement condition"),
-        );
+        ) {
+            Err(_) => return Err(ParseError),
+            _ => {}
+        };
 
         let if_block: Stmt;
 
@@ -168,6 +220,7 @@ impl Parser {
         Ok(Stmt::If {
             condition: condition_expr,
             if_block: Box::from(if_block),
+            caller,
         })
     }
 

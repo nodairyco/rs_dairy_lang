@@ -12,6 +12,12 @@ pub enum Stmt {
     If {
         condition: Expr,
         if_block: Box<Stmt>,
+        caller: Token,
+    },
+    While {
+        condition: Expr,
+        block: Box<Stmt>,
+        caller: Token,
     },
 }
 
@@ -29,7 +35,13 @@ impl Stmt {
             Stmt::If {
                 condition,
                 if_block,
-            } => visitor.visit_if(condition, if_block),
+                caller,
+            } => visitor.visit_if(condition, if_block, caller),
+            Stmt::While {
+                condition,
+                block,
+                caller,
+            } => visitor.visit_while(condition, block, caller),
         }
     }
 
@@ -47,5 +59,11 @@ pub trait Visitor<R> {
     fn visit_expr_stmt(&mut self, expr_expr: &mut Expr) -> R;
     fn visit_var_stmt(&mut self, name: &mut Token, initializer: &mut Expr, var_type: VarType) -> R;
     fn visit_block(&mut self, stmts: &mut Vec<Stmt>) -> R;
-    fn visit_if(&mut self, condition: &mut Expr, if_block: &mut Stmt) -> R;
+    fn visit_if(&mut self, condition: &mut Expr, if_block: &mut Stmt, caller: &mut Token) -> R;
+    fn visit_while(
+        &mut self,
+        condition: &mut Expr,
+        while_block: &mut Stmt,
+        caller: &mut Token,
+    ) -> R;
 }
