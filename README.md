@@ -46,7 +46,8 @@ print res;
 
 ### Releases
 
-- ![V-0.0.1 - added If statements](https://github.com/nodairyco/rs_dairy_lang/releases/tag/V-0.0.1)
+- ![Alpha 1 - added If statements](https://github.com/nodairyco/rs_dairy_lang/releases/tag/V-0.0.1)
+- ![Alpha 2 - added While statements, and some operators](https://github.com/nodairyco/rs_dairy_lang/releases/tag/Alpha-2)
 
 --- 
 
