@@ -142,6 +142,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
         &mut self,
         condition: &mut Expr,
         if_block: &mut Stmt,
+        else_block: &mut Option<Box<Stmt>>,
         caller: &mut Token,
     ) -> StmtResult {
         let condition_bool: bool;
@@ -153,6 +154,8 @@ impl stmt::Visitor<StmtResult> for Interpreter {
 
         if condition_bool {
             return self.execute_stmt(if_block);
+        } else if else_block.is_some() {
+            return self.execute_stmt(else_block.as_mut().unwrap().as_mut());
         }
 
         Ok(())
@@ -164,23 +167,22 @@ impl stmt::Visitor<StmtResult> for Interpreter {
         while_block: &mut Stmt,
         caller: &mut Token,
     ) -> StmtResult {
-        let mut condition_bool: bool;
+        let condition_bool: bool;
 
         match self.evaluate_condition(condition, caller) {
             Ok(bool) => condition_bool = bool,
             _ => return Err(EvalError),
         };
 
-        while condition_bool {
+        if condition_bool {
             match self.execute_stmt(while_block) {
                 Err(_) => return Err(EvalError),
                 _ => (),
             }
+        }
 
-            match self.evaluate_condition(condition, caller) {
-                Ok(bool) => condition_bool = bool,
-                _ => return Err(EvalError),
-            }
+        while self.evaluate_condition(condition, caller).unwrap() {
+            let _ = self.execute_stmt(while_block);
         }
 
         Ok(())

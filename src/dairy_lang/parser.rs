@@ -145,46 +145,43 @@ impl Parser {
     }
 
     fn while_stmt(&mut self) -> ParseResult<Stmt> {
-        let caller: Token = self.prev().clone();
-
-        match self.consume(
-            TokenType::DOUBLE_SQUARE_LEFT,
-            String::from("Expected '[[' before a while statement condition"),
-        ) {
+        let cond_stmt: (Expr, Box<Stmt>, Token) = match self.get_conditional_stmt() {
             Err(_) => return Err(ParseError),
-            _ => {}
-        };
-
-        let cond_expr: Expr;
-
-        match self.equality() {
-            Ok(expr) => cond_expr = expr,
-            _ => return Err(ParseError),
-        };
-
-        match self.consume(
-            TokenType::DOUBLE_SQUARE_RIGHT,
-            String::from("Expected ']]' after a while statement condition"),
-        ) {
-            Err(_) => return Err(ParseError),
-            _ => {}
-        };
-
-        let while_block: Stmt;
-
-        match self.statement() {
-            Ok(stmt) => while_block = stmt,
-            _ => return Err(ParseError),
+            Ok(tup) => tup,
         };
 
         Ok(Stmt::While {
-            condition: cond_expr,
-            block: Box::new(while_block),
-            caller,
+            condition: cond_stmt.0,
+            block: cond_stmt.1,
+            caller: cond_stmt.2,
         })
     }
 
     fn if_stmt(&mut self) -> ParseResult<Stmt> {
+        let cond_stmt: (Expr, Box<Stmt>, Token) = match self.get_conditional_stmt() {
+            Err(_) => return Err(ParseError),
+            Ok(tup) => tup,
+        };
+
+        let mut else_block: Option<Box<Stmt>> = None;
+
+        if self.match_types(&[TokenType::ELSE]) {
+            match self.statement() {
+                Ok(stmt) => else_block = Some(Box::from(stmt)),
+                Err(_) => return Err(ParseError),
+            };
+        }
+
+        Ok(Stmt::If {
+            condition: cond_stmt.0,
+            if_block: cond_stmt.1,
+            else_block,
+            caller: cond_stmt.2,
+        })
+    }
+
+    /// Get condition expression, body, and the caller of a conditional statement
+    fn get_conditional_stmt(&mut self) -> ParseResult<(Expr, Box<Stmt>, Token)> {
         let caller: Token = self.prev().clone();
 
         match self.consume(
@@ -210,18 +207,14 @@ impl Parser {
             _ => {}
         };
 
-        let if_block: Stmt;
+        let block: Stmt;
 
         match self.statement() {
-            Ok(stmt) => if_block = stmt,
+            Ok(stmt) => block = stmt,
             Err(_) => return Err(ParseError),
         };
 
-        Ok(Stmt::If {
-            condition: condition_expr,
-            if_block: Box::from(if_block),
-            caller,
-        })
+        Ok((condition_expr, Box::from(block), caller))
     }
 
     /// Parse a block of code and return a vector of statements in it
