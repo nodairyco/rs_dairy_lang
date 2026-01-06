@@ -31,8 +31,16 @@ if [[ a == 2000 ]] {
     a = a + b;
 }
 
-if [[ a == 2026]] {
+if [[ a == 2026 ]] {
     res = "Happy new year " + a + "!";
+}
+
+// while loops (now come with 50% less crashes!)
+var iter = 0;
+
+while [[ iter < 10 ]] {
+    print res;
+    iter = iter + 1;
 }
 
 // print for now is a keyword [blame the book not me]
@@ -48,6 +56,7 @@ print res;
 
 - ![Alpha 1 - added If statements](https://github.com/nodairyco/rs_dairy_lang/releases/tag/V-0.0.1)
 - ![Alpha 2 - added While statements, and some operators](https://github.com/nodairyco/rs_dairy_lang/releases/tag/Alpha-2)
+- ![Alpha 3 - fixed bug with while loops crashing on high iterations](https://github.com/nodairyco/rs_dairy_lang/releases/tag/Alpha-3)
 
 --- 
 
