@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     dairy_hater,
@@ -20,7 +20,7 @@ struct EnvValue {
 
 #[derive(Clone)]
 pub struct Environment {
-    values: HashMap<String, EnvValue>,
+    values: HashMap<Rc<str>, EnvValue>,
     enclosing: Option<Box<Environment>>,
 }
 
@@ -39,7 +39,7 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: String, value: Value, var_type: VarType) {
+    pub fn define(&mut self, name: Rc<str>, value: Value, var_type: VarType) {
         self.values.insert(name, EnvValue { value, var_type });
     }
 

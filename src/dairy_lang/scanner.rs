@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     dairy_hater,
     dairy_lang::token::{Token, TokenType, Value},
@@ -69,7 +71,7 @@ impl Scanner {
         // Push the end of file token to the end of the token list
         self.tokens.push(Token::new(
             TokenType::EOF,
-            "".to_string(),
+            Rc::from(""),
             self.line,
             Value::Nil,
         ));
@@ -200,7 +202,7 @@ impl Scanner {
         let text = &self.source[self.start as usize..self.current as usize];
 
         self.tokens
-            .push(Token::new(token_type, String::from(text), self.line, val));
+            .push(Token::new(token_type, Rc::from(text), self.line, val));
     }
 
     /// Compare the next value to the expected char. If matches move the curr pointer
@@ -268,7 +270,7 @@ impl Scanner {
         self.advance();
         let val = &self.source[(self.start + 1) as usize..(self.current - 1) as usize];
 
-        self.add_token_val(Value::Str(String::from(val)), TokenType::STRING);
+        self.add_token_val(Value::Str(Rc::from(val)), TokenType::STRING);
     }
 
     /// Parse from number and if dot is found if proceeding number it is turned into a floating point number.

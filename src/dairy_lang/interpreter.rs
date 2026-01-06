@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     dairy_hater,
     dairy_lang::{
@@ -230,7 +232,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 }
             },
             (Value::Str(l), Value::Str(r)) => match operator.token_type {
-                TokenType::PLUS => Ok(Value::Str(l + &r)),
+                TokenType::PLUS => Ok(Value::Str(Rc::from(format!("{}{}", l, r)))),
                 _ => {
                     dairy_hater::error_token(
                         &operator,
@@ -240,7 +242,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 }
             },
             (Value::Str(l), Value::Number(r)) => match operator.token_type {
-                TokenType::PLUS => Ok(Value::Str(l + &r.to_string())),
+                TokenType::PLUS => Ok(Value::Str(Rc::from(format!("{}{}", l, r)))),
                 _ => {
                     dairy_hater::error_token(
                         &operator,
@@ -250,7 +252,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 }
             },
             (Value::Number(l), Value::Str(r)) => match operator.token_type {
-                TokenType::PLUS => Ok(Value::Str(l.to_string() + &r)),
+                TokenType::PLUS => Ok(Value::Str(Rc::from(format!("{}{}", l, r)))),
                 _ => {
                     dairy_hater::error_token(
                         &operator,

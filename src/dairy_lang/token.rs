@@ -2,7 +2,7 @@
 #![allow(unused)]
 
 use core::fmt;
-use std::fmt::write;
+use std::{fmt::write, rc::Rc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
@@ -65,7 +65,7 @@ pub enum TokenType {
 pub enum Value {
     Nil,
     Number(f64),
-    Str(String),
+    Str(Rc<str>),
     Bool(bool),
     Void,
 }
@@ -73,13 +73,13 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
-    pub lexem: String,
+    pub lexem: Rc<str>,
     pub line: u32,
     pub literal: Value,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexem: String, line: u32, literal: Value) -> Token {
+    pub fn new(token_type: TokenType, lexem: Rc<str>, line: u32, literal: Value) -> Token {
         Token {
             token_type: token_type,
             lexem: lexem,
@@ -94,7 +94,7 @@ impl fmt::Display for Value {
         match self {
             Value::Nil => write!(f, "nil"),
             Value::Number(n) => write!(f, "{}", n),
-            Value::Str(str) => write!(f, "{}", str),
+            Value::Str(str) => write!(f, "{}", *str),
             Value::Bool(bool) => write!(f, "{}", bool),
             _ => write!(f, ""),
         }
