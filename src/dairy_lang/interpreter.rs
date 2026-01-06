@@ -1,4 +1,8 @@
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    io::{self, BufWriter, Stdout, Write},
+    rc::Rc,
+};
 
 use crate::{
     dairy_hater,
@@ -11,13 +15,15 @@ use crate::{
 };
 
 pub struct Interpreter {
-    env: Environment,
+    env: Rc<RefCell<Environment>>,
+    printer: BufWriter<Stdout>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            env: Environment::new(),
+            env: Rc::new(RefCell::new(Environment::new())),
+            printer: BufWriter::new(io::stdout()),
         }
     }
 
@@ -48,15 +54,15 @@ impl Interpreter {
                 _ => (),
             }
         }
+        let _ = self.printer.flush();
     }
 
     fn execute_stmt(&mut self, stmt: &mut Stmt) -> StmtResult {
         stmt.accept(self)
     }
 
-    fn execute_block(&mut self, stmts: &mut Vec<Stmt>) {
-        let new_env = Environment::from_enclosing_env(self.env.clone());
-
+    fn execute_block(&mut self, stmts: &mut Vec<Stmt>, new_env: Rc<RefCell<Environment>>) {
+        let prev_env = self.env.clone();
         self.env = new_env;
 
         for stmt in stmts {
@@ -67,6 +73,8 @@ impl Interpreter {
                 _ => {}
             };
         }
+
+        self.env = prev_env;
     }
 
     fn evaluate_condition(
@@ -102,8 +110,12 @@ type StmtResult = Result<(), EvalError>;
 impl stmt::Visitor<StmtResult> for Interpreter {
     fn visit_print_stmt(&mut self, print_expr: &mut Expr) -> StmtResult {
         let val = self.evaluate(print_expr);
+
         match val {
-            Ok(value) => Ok(println!("{}", value)),
+            Ok(value) => {
+                let _ = self.printer.write_fmt(format_args!("{value}\n"));
+                Ok(())
+            }
             Err(_) => Err(EvalError),
         }
     }
@@ -130,12 +142,14 @@ impl stmt::Visitor<StmtResult> for Interpreter {
             }
         }
 
-        self.env.define(name.lexem.clone(), val, var_type);
+        self.env
+            .borrow_mut()
+            .define(name.lexem.clone(), val, var_type);
         Ok(())
     }
 
     fn visit_block(&mut self, stmts: &mut Vec<Stmt>) -> StmtResult {
-        self.execute_block(stmts);
+        self.execute_block(stmts, Environment::from_enclosing_env(self.env.clone()));
 
         Ok(())
     }
@@ -325,22 +339,13 @@ impl expression::Visitor<EvalResult> for Interpreter {
     }
 
     fn visit_var(&mut self, var_name: &mut Token) -> EvalResult {
-        Ok(self.env.get(var_name).clone())
+        match self.env.borrow().get(var_name) {
+            Some(val) => Ok(val),
+            None => Err(EvalError),
+        }
     }
 
     fn visit_assign(&mut self, var_name: &mut Token, val_expr: &mut Expr) -> EvalResult {
-        let var_type: &VarType = self.env.get_type(var_name);
-        let var_to_be_assigned: &Value = self.env.get(var_name);
-
-        if var_type == &VarType::VAL && var_to_be_assigned != &Value::Nil {
-            dairy_hater::error_token(
-                var_name,
-                String::from("Cannot assign a different value to a constant member"),
-            );
-
-            return Err(EvalError);
-        }
-
         let var_val: Value;
 
         match self.evaluate(val_expr) {
@@ -348,7 +353,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
             Err(_) => return Err(EvalError),
         }
 
-        self.env.assign(var_name, &var_val);
+        self.env.borrow_mut().assign(var_name, &var_val);
         Ok(var_val)
     }
 }
