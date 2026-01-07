@@ -159,14 +159,14 @@ impl Scanner {
                 if self.match_next('[') {
                     self.add_token(TokenType::DOUBLE_SQUARE_LEFT);
                 } else {
-                    dairy_hater::error(self.line, "Unexpected character".to_string());
+                    dairy_hater::error(self.line, "Unexpected character");
                 }
             }
             ']' => {
                 if self.match_next(']') {
                     self.add_token(TokenType::DOUBLE_SQUARE_RIGHT);
                 } else {
-                    dairy_hater::error(self.line, "Unexpected character".to_string());
+                    dairy_hater::error(self.line, "Unexpected character");
                 }
             }
             rest => {
@@ -175,7 +175,7 @@ impl Scanner {
                 } else if Self::is_alpha(&rest) {
                     self.handle_identifier();
                 } else {
-                    dairy_hater::error(self.line, "Unexpected character".to_string());
+                    dairy_hater::error(self.line, "Unexpected character");
                 }
             }
         }
@@ -263,7 +263,7 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            dairy_hater::error(self.line, "ERR! Undetermined string".to_string());
+            dairy_hater::error(self.line, "ERR! Undetermined string");
             return;
         }
 

@@ -80,7 +80,7 @@ impl Environment {
             let var = self.get(name);
 
             if var_type == Some(&VarType::VAL) && var != Some(Value::Nil) {
-                dairy_hater::error_token(name, String::from("Cannot assign to a constant"));
+                dairy_hater::error_token(name, "Cannot assign to a constant");
                 return;
             }
 
@@ -102,6 +102,6 @@ impl Environment {
             return enclosing_env.borrow_mut().assign(name, value);
         }
 
-        dairy_hater::error_token(name, String::from("Variable with this name does not exist"));
+        dairy_hater::error_token(name, "Variable with this name does not exist");
     }
 }

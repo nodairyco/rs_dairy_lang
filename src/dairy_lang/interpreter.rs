@@ -50,9 +50,7 @@ impl Interpreter {
 
     pub fn interpret(&mut self, stmts: &mut Vec<Stmt>) {
         for stmt in stmts {
-            match self.execute_stmt(stmt) {
-                _ => (),
-            }
+            let _ = self.execute_stmt(stmt);
         }
         let _ = self.printer.flush();
     }
@@ -94,7 +92,7 @@ impl Interpreter {
             _ => {
                 dairy_hater::error_token(
                     caller,
-                    "Cannot have a none bool value in an if statement's condition".to_string(),
+                    "Cannot have a none bool value in an if statement's condition",
                 );
                 Err(EvalError)
             }
@@ -223,13 +221,13 @@ impl expression::Visitor<EvalResult> for Interpreter {
             return Ok(Value::Bool(!Self::is_equal(&left_val, &right_val)));
         }
 
-        return match (left_val, right_val) {
+        return match (&left_val, &right_val) {
             (Value::Number(l), Value::Number(r)) => match operator.token_type {
                 TokenType::MINUS => Ok(Value::Number(l - r)),
                 TokenType::PLUS => Ok(Value::Number(l + r)),
                 TokenType::STAR => Ok(Value::Number(l * r)),
                 TokenType::SLASH => {
-                    dairy_hater::error_token(&operator, format!("division by zero"));
+                    dairy_hater::error_token(&operator, &format!("division by zero"));
                     Ok(Value::Number(l / r))
                 }
                 TokenType::GREATER => Ok(Value::Bool(l > r)),
@@ -240,7 +238,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 _ => {
                     dairy_hater::error_token(
                         &operator,
-                        format!("unsupported operation {} for number", operator.lexem),
+                        &format!("unsupported operation {} for number", operator.lexem),
                     );
                     Err(EvalError)
                 }
@@ -250,7 +248,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 _ => {
                     dairy_hater::error_token(
                         &operator,
-                        format!("unsupported operation {} for string", operator.lexem),
+                        &format!("unsupported operation {} for string", operator.lexem),
                     );
                     Err(EvalError)
                 }
@@ -260,7 +258,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 _ => {
                     dairy_hater::error_token(
                         &operator,
-                        format!("unsupported operation {} for string", operator.lexem),
+                        &format!("unsupported operation {} for string", operator.lexem),
                     );
                     Err(EvalError)
                 }
@@ -270,19 +268,19 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 _ => {
                     dairy_hater::error_token(
                         &operator,
-                        format!("unsupported operation {} for string", operator.lexem),
+                        &format!("unsupported operation {} for string", operator.lexem),
                     );
                     Err(EvalError)
                 }
             },
             (Value::Bool(l), Value::Bool(r)) => match operator.token_type {
-                TokenType::AND => Ok(Value::Bool(l && r)),
-                TokenType::OR => Ok(Value::Bool(l || r)),
-                TokenType::XOR => Ok(Value::Bool(l ^ r)),
+                TokenType::AND => Ok(Value::Bool(*l && *r)),
+                TokenType::OR => Ok(Value::Bool(*l || *r)),
+                TokenType::XOR => Ok(Value::Bool(*l ^ *r)),
                 _ => {
                     dairy_hater::error_token(
                         &operator,
-                        format!("unsupported operation {} for bool", operator.lexem),
+                        &format!("unsupported operation {} for bool", operator.lexem),
                     );
                     Err(EvalError)
                 }
@@ -290,9 +288,9 @@ impl expression::Visitor<EvalResult> for Interpreter {
             (_, _) => {
                 dairy_hater::error_token(
                     &operator,
-                    format!(
+                    &format!(
                         "unsupported types l:{:?}, r:{:?} for {}",
-                        left, right, operator.lexem
+                        left_val, right_val, operator.lexem
                     ),
                 );
                 Err(EvalError)
@@ -316,7 +314,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 _ => {
                     dairy_hater::error_token(
                         &operator,
-                        format!("unsupported operation {} for number", operator.lexem),
+                        &format!("unsupported operation {} for number", operator.lexem),
                     );
                     Err(EvalError)
                 }
@@ -326,13 +324,16 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 _ => {
                     dairy_hater::error_token(
                         &operator,
-                        format!("unsupported operation {} for bool", operator.lexem),
+                        &format!("unsupported operation {} for bool", operator.lexem),
                     );
                     Err(EvalError)
                 }
             },
             _ => {
-                dairy_hater::error_token(&operator, format!("unsupported type {}", operator.lexem));
+                dairy_hater::error_token(
+                    &operator,
+                    &format!("unsupported type {}", operator.lexem),
+                );
                 Err(EvalError)
             }
         }

@@ -1,7 +1,7 @@
-use std::vec;
+use std::{rc::Rc, vec};
 
 use crate::{
-    dairy_hater::{self},
+    dairy_hater,
     dairy_lang::{
         environment::VarType,
         expression::Expr,
@@ -12,11 +12,14 @@ use crate::{
 
 pub struct Parser {
     tokens: Vec<Token>,
-    current: u32,
+    current: usize,
 }
 
 #[derive(Debug)]
-struct ParseError;
+struct ParseError {
+    err_token_pos: usize,
+    err_msg: Rc<str>,
+}
 
 type ParseResult<T> = Result<T, ParseError>;
 
@@ -52,7 +55,11 @@ impl Parser {
 
         match parser_res {
             Ok(stmt) => stmt,
-            _ => {
+            Err(ParseError {
+                err_token_pos,
+                err_msg,
+            }) => {
+                dairy_hater::error_token_non_fatal(&self.tokens[err_token_pos], &err_msg);
                 self.sync();
                 Stmt::Expression(Expr::empty())
             }
@@ -61,64 +68,46 @@ impl Parser {
 
     /// Declare const with VAL keyword
     fn const_declaration(&mut self) -> ParseResult<Stmt> {
-        let name: Token;
-
-        match self.consume(TokenType::IDENTIFIER, "Expected a const name".to_string()) {
-            Ok(t) => name = t.clone(),
-            _ => return Err(ParseError),
-        };
-
-        let mut initializer = Expr::empty();
-
-        if self.match_types(&[TokenType::EQUAL]) {
-            match self.expression() {
-                Ok(expr) => initializer = expr,
-                _ => return Err(ParseError),
-            };
-        }
-
-        match self.consume(
-            TokenType::SEMICOLON,
-            String::from("Expected ';' after val declaration"),
-        ) {
-            Err(_) => return Err(ParseError),
-            _ => (),
-        }
-
-        Ok(Stmt::new_var(name, initializer, VarType::VAL))
+        self.create_var_decl_stmt(VarType::VAL)
     }
 
     /// Gets var name from IDENTIFIER Token, then checks if there is an expression following declaration.
     /// If not variable is initialized as Nil
     fn var_declaration(&mut self) -> ParseResult<Stmt> {
+        self.create_var_decl_stmt(VarType::VAR)
+    }
+
+    /// Creates a variable declaration statement with the given variable type.
+    fn create_var_decl_stmt(&mut self, var_type: VarType) -> ParseResult<Stmt> {
         let name: Token;
 
-        match self.consume(
-            TokenType::IDENTIFIER,
-            String::from("Expected a variable name."),
-        ) {
-            Ok(t) => name = t.clone(),
-            _ => return Err(ParseError),
-        };
+        name = self
+            .consume(
+                TokenType::IDENTIFIER,
+                if var_type == VarType::VAR {
+                    "Expected a const name"
+                } else {
+                    "Expected a variable name"
+                },
+            )?
+            .clone();
 
         let mut initializer = Expr::empty();
 
         if self.match_types(&[TokenType::EQUAL]) {
-            match self.expression() {
-                Ok(expr) => initializer = expr,
-                _ => return Err(ParseError),
-            }
-        };
-
-        match self.consume(
-            TokenType::SEMICOLON,
-            String::from("Expected ';' after variable declaration"),
-        ) {
-            Err(_) => return Err(ParseError),
-            _ => (),
+            initializer = self.expression()?;
         }
 
-        Ok(Stmt::new_var(name, initializer, VarType::VAR))
+        self.consume(
+            TokenType::SEMICOLON,
+            if var_type == VarType::VAR {
+                "Expected ';' after variable declaration"
+            } else {
+                "Expected ';' after a constant declaration"
+            },
+        )?;
+
+        Ok(Stmt::new_var(name, initializer, var_type))
     }
 
     /// Get a statement from the current expression
@@ -145,10 +134,7 @@ impl Parser {
     }
 
     fn while_stmt(&mut self) -> ParseResult<Stmt> {
-        let cond_stmt: (Expr, Box<Stmt>, Token) = match self.get_conditional_stmt() {
-            Err(_) => return Err(ParseError),
-            Ok(tup) => tup,
-        };
+        let cond_stmt: (Expr, Box<Stmt>, Token) = self.get_conditional_stmt()?;
 
         Ok(Stmt::While {
             condition: cond_stmt.0,
@@ -158,18 +144,12 @@ impl Parser {
     }
 
     fn if_stmt(&mut self) -> ParseResult<Stmt> {
-        let cond_stmt: (Expr, Box<Stmt>, Token) = match self.get_conditional_stmt() {
-            Err(_) => return Err(ParseError),
-            Ok(tup) => tup,
-        };
+        let cond_stmt: (Expr, Box<Stmt>, Token) = self.get_conditional_stmt()?;
 
         let mut else_block: Option<Box<Stmt>> = None;
 
         if self.match_types(&[TokenType::ELSE]) {
-            match self.statement() {
-                Ok(stmt) => else_block = Some(Box::from(stmt)),
-                Err(_) => return Err(ParseError),
-            };
+            else_block = Some(Box::from(self.statement()?));
         }
 
         Ok(Stmt::If {
@@ -184,35 +164,25 @@ impl Parser {
     fn get_conditional_stmt(&mut self) -> ParseResult<(Expr, Box<Stmt>, Token)> {
         let caller: Token = self.prev().clone();
 
-        match self.consume(
-            TokenType::DOUBLE_SQUARE_LEFT,
-            String::from("Expected '[[' before an if statement condition"),
-        ) {
-            Err(_) => return Err(ParseError),
-            _ => {}
+        let msg = if caller.token_type == TokenType::IF {
+            "Expected '[[' before an if statement condition"
+        } else {
+            "Expected '[[' before a while statement condition"
         };
 
-        let condition_expr: Expr;
+        _ = self.consume(TokenType::DOUBLE_SQUARE_LEFT, msg)?;
 
-        match self.equality() {
-            Ok(expr) => condition_expr = expr,
-            Err(_) => return Err(ParseError),
+        let condition_expr: Expr = self.equality()?;
+
+        let msg = if caller.token_type == TokenType::IF {
+            "Expected ']]' after an if statement condition"
+        } else {
+            "Expected ']]' after a while statement condition"
         };
 
-        match self.consume(
-            TokenType::DOUBLE_SQUARE_RIGHT,
-            String::from("Expected ']]' after an if statement condition"),
-        ) {
-            Err(_) => return Err(ParseError),
-            _ => {}
-        };
+        _ = self.consume(TokenType::DOUBLE_SQUARE_RIGHT, msg)?;
 
-        let block: Stmt;
-
-        match self.statement() {
-            Ok(stmt) => block = stmt,
-            Err(_) => return Err(ParseError),
-        };
+        let block: Stmt = self.statement()?;
 
         Ok((condition_expr, Box::from(block), caller))
     }
@@ -226,46 +196,27 @@ impl Parser {
             stmts.push(self.declaration());
         }
 
-        let _ = self.consume(
-            TokenType::RIGHT_BRACE,
-            String::from("Expect '}' after a block"),
-        );
+        let _ = self.consume(TokenType::RIGHT_BRACE, "Expect '}' after a block");
 
         stmts
     }
 
     /// Get a print statement from the current expression
     fn print_stmt(&mut self) -> ParseResult<Stmt> {
-        let expr: Expr;
-        match self.expression() {
-            Ok(res) => expr = res,
-            Err(_) => return Err(ParseError),
-        };
+        let expr: Expr = self.expression()?;
 
-        match self.consume(
-            TokenType::SEMICOLON,
-            "Expect ';' after a statement".to_string(),
-        ) {
-            Ok(_) => Ok(Stmt::Print(expr)),
-            Err(_) => Err(ParseError),
-        }
+        _ = self.consume(TokenType::SEMICOLON, "Expect ';' after a statement")?;
+
+        Ok(Stmt::Print(expr))
     }
 
     /// Get an expression statement from the current expression.
     fn expr_stmt(&mut self) -> ParseResult<Stmt> {
-        let expr: Expr;
-        match self.expression() {
-            Ok(res) => expr = res,
-            Err(_) => return Err(ParseError),
-        };
+        let expr: Expr = self.expression()?;
 
-        match self.consume(
-            TokenType::SEMICOLON,
-            "Expect ';' after a statement".to_string(),
-        ) {
-            Ok(_) => Ok(Stmt::Expression(expr)),
-            Err(_) => Err(ParseError),
-        }
+        _ = self.consume(TokenType::SEMICOLON, "Expect ';' after a statement")?;
+
+        Ok(Stmt::Expression(expr))
     }
 
     /// Top most expression maps directly to equality <br>
@@ -277,32 +228,28 @@ impl Parser {
     /// Assignment
     /// assign -> IDNETIFIER "=" assignment | equality
     fn assignment(&mut self) -> ParseResult<Expr> {
-        let expr_res: ParseResult<Expr> = self.logical();
+        let mut expr: Expr = self.logical()?;
 
         if self.match_types(&[TokenType::EQUAL]) {
-            let previous_token: Token = self.prev().clone();
+            let var_value: Expr = self.assignment()?;
 
-            let var_value: ParseResult<Expr> = self.assignment();
-
-            return match expr_res {
-                Ok(expr) => match expr {
-                    Expr::Var { name } => match var_value {
-                        Ok(var_value_expression) => Ok(Expr::Assign {
-                            name,
-                            value: Box::from(var_value_expression),
-                        }),
-                        _ => Err(ParseError),
-                    },
-                    _ => {
-                        Self::error(&previous_token, String::from("Invalid assignment target."));
-                        Err(ParseError)
+            match expr {
+                Expr::Var { name } => {
+                    expr = Expr::Assign {
+                        name,
+                        value: Box::from(var_value),
                     }
-                },
-                Err(_) => Err(ParseError),
+                }
+                _ => {
+                    return Err(ParseError {
+                        err_token_pos: self.current - 1,
+                        err_msg: Rc::from("Invalid assignment target."),
+                    });
+                }
             };
         }
 
-        expr_res
+        Ok(expr)
     }
 
     /// Logical and, or, and xor operators
@@ -373,29 +320,21 @@ impl Parser {
     where
         F: FnMut(&mut Self) -> ParseResult<Expr>,
     {
-        let mut left: ParseResult<Expr> = next_funct(self);
+        let mut left: Expr = next_funct(self)?;
 
         while self.match_types(token_types) {
             let operator: Token = self.prev().clone();
 
-            let right: ParseResult<Expr> = next_funct(self);
+            let right: Expr = next_funct(self)?;
 
-            match left {
-                Err(_) => return Err(ParseError),
-                Ok(res_left) => match right {
-                    Err(_) => return Err(ParseError),
-                    Ok(res_right) => {
-                        left = Ok(Expr::Binary {
-                            left: Box::new(res_left),
-                            operator,
-                            right: Box::new(res_right),
-                        })
-                    }
-                },
-            }
+            left = Expr::Binary {
+                left: Box::new(left),
+                operator,
+                right: Box::new(right),
+            };
         }
 
-        left
+        Ok(left)
     }
 
     /// Simply if there is a unary operation go save it and go one deeper, and so on if a unary is found <br>
@@ -405,15 +344,12 @@ impl Parser {
         if self.match_types(&[TokenType::BANG, TokenType::MINUS]) {
             let operator = self.prev().clone();
 
-            let right = self.unary();
+            let right = self.unary()?;
 
-            return match right {
-                Ok(res) => Ok(Expr::Unary {
-                    operator: operator,
-                    right: Box::new(res),
-                }),
-                Err(err) => Err(err),
-            };
+            return Ok(Expr::Unary {
+                operator: operator,
+                right: Box::new(right),
+            });
         }
 
         self.primary()
@@ -443,38 +379,33 @@ impl Parser {
                 name: self.prev().clone(),
             }),
             TokenType::LEFT_PAREN => {
-                let expr = self.expression();
+                let expr = self.expression()?;
 
-                match self.consume(
-                    TokenType::RIGHT_PAREN,
-                    String::from("Expect ')' after expression."),
-                ) {
-                    Ok(_) => match expr {
-                        Ok(res) => {
-                            return Ok(Expr::Grouping {
-                                expression: Box::new(res),
-                            });
-                        }
-                        Err(err) => return Err(err),
-                    },
-                    Err(err) => return Err(err),
-                };
+                _ = self.consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.")?;
+
+                Ok(Expr::Grouping {
+                    expression: Box::new(expr),
+                })
             }
-            _ => Err(Self::error(
-                self.prev(),
-                "Variable does not exist".to_string(),
-            )),
+            TokenType::SEMICOLON => Err(ParseError {
+                err_token_pos: self.current - 2,
+                err_msg: Rc::from("No expression provided for the current statement"),
+            }),
+            _ => Err(ParseError {
+                err_token_pos: self.current - 1,
+                err_msg: Rc::from("Variable does not exist"),
+            }),
         }
     }
 
     /// Get the Token at the current addr
     fn peek(&self) -> &Token {
-        &self.tokens[self.current as usize]
+        &self.tokens[self.current]
     }
 
     /// Get the previous Token
     fn prev(&self) -> &Token {
-        &self.tokens[self.current as usize - 1]
+        &self.tokens[self.current - 1]
     }
 
     /// Chekc if the current token is EOF Token
@@ -518,27 +449,23 @@ impl Parser {
         self.peek().token_type
     }
 
-    fn error(token: &Token, msg: String) -> ParseError {
-        dairy_hater::error_token(&token, msg);
-        ParseError
-    }
-
     /// Consumes the current token and returns the next one. <br>
     /// Throws error if the current token is not of the given type.
-    fn consume(&mut self, token_type: TokenType, msg: String) -> Result<&Token, ParseError> {
+    fn consume(&mut self, token_type: TokenType, msg: &str) -> Result<&Token, ParseError> {
         if self.check_curr_type(token_type) {
             return Ok(self.advance());
         }
 
-        return Err(Self::error(self.peek(), msg));
+        return Err(ParseError {
+            err_token_pos: self.current - 1,
+            err_msg: Rc::from(msg),
+        });
     }
 
     /// Function to synchronise in case an error occures. <br>
     /// If a parse error is detected, drop tokens, until a start of a new expression,
     /// or the end of the current one is found.
     fn sync(&mut self) {
-        self.advance();
-
         while !self.is_at_end() {
             match self.peek().token_type {
                 TokenType::SEMICOLON => return,

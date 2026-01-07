@@ -77,18 +77,31 @@ mod dairy_hater {
         }
     }
 
-    pub fn error(line: u32, msg: String) {
-        report(line, String::from(""), msg);
+    pub fn error(line: u32, msg: &str) {
+        report(line, "", msg);
     }
 
-    pub fn error_token(token: &Token, msg: String) {
+    pub fn error_token(token: &Token, msg: &str) {
         match token.token_type {
-            TokenType::EOF => report(token.line, " at end".to_string(), msg),
-            _ => report(token.line, format!(" at '{}'", token.lexem), msg),
+            TokenType::EOF => report(token.line, " at end", msg),
+            _ => report(token.line, &format!(" at '{}'", token.lexem), msg),
         }
     }
 
-    fn report(line: u32, wher: String, msg: String) {
+    pub fn error_token_non_fatal(token: &Token, msg: &str) {
+        match token.token_type {
+            TokenType::EOF => report_non_fatal(token.line, " at end", msg),
+            _ => report_non_fatal(token.line, &format!(" at '{}'", token.lexem), msg),
+        }
+    }
+
+    /// Prints to the error buffer and does not terminate the program.
+    fn report_non_fatal(line: u32, wher: &str, msg: &str) {
+        eprintln!("[line {}] Error {}: {}", line, wher, msg)
+    }
+
+    /// Prints to the error buffer and terminates the program.
+    fn report(line: u32, wher: &str, msg: &str) {
         HAD_ERR.store(true, Ordering::Relaxed);
         eprintln!("[line {}] Error {}: {}", line, wher, msg);
     }
