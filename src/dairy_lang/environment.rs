@@ -41,7 +41,13 @@ impl Environment {
     }
 
     pub fn define(&mut self, name: Rc<str>, value: Value, var_type: Modifier) {
-        self.values.insert(name, EnvValue { value, var_modifier: var_type });
+        self.values.insert(
+            name,
+            EnvValue {
+                value,
+                var_modifier: var_type,
+            },
+        );
     }
 
     pub fn get(&self, name: &Token) -> Result<EnvValue, EnvError> {
@@ -61,7 +67,7 @@ impl Environment {
 
     pub fn assign(&mut self, name: &Token, value: &Value) -> Result<(), EnvError> {
         if self.values.contains_key(&name.lexem) {
-            let var: EnvValue = self.get(name)?;
+            let mut var: EnvValue = self.get(name)?;
 
             if var.var_modifier == Modifier::VAL && var.value != Value::Nil {
                 return Err(EnvError {
@@ -70,10 +76,9 @@ impl Environment {
                 });
             }
 
-            let name_env_val_tuple = (
-                name.lexem.clone(),
-                var
-            );
+            var.value = value.clone();
+
+            let name_env_val_tuple = (name.lexem.clone(), var);
 
             self.values
                 .insert(name_env_val_tuple.0, name_env_val_tuple.1);

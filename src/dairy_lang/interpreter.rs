@@ -114,7 +114,7 @@ impl Interpreter {
         self.env = new_env;
 
         for stmt in stmts {
-            self.execute_stmt(stmt)?
+            self.execute_stmt(stmt)?;
         }
 
         self.env = prev_env;
@@ -133,7 +133,7 @@ impl Interpreter {
             Value::Bool(bool) => Ok(bool),
             _ => Err(EvalError {
                 error_token: Rc::from(caller.clone()),
-                error_msg: Rc::from("Cannot have a none bool value in an if statement's condition"),
+                error_msg: Rc::from("Cannot have a none bool value in a conditional statement's condition"),
             }),
         }
     }
@@ -155,7 +155,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
         Ok(())
     }
 
-    /// Execute var declaration statement. If the initializer Expression is not empty  
+    /// Execute var declaration statement. If the initializer Expression is not empty
     fn visit_var_stmt(
         &mut self,
         name: &mut Token,
