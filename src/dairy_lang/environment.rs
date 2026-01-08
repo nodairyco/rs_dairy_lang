@@ -1,26 +1,28 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{
-    dairy_hater,
-    dairy_lang::token::{Token, Value},
-};
+use crate::dairy_lang::token::{Token, Value};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum VarType {
+pub enum Modifier {
     VAR,
     VAL,
 }
 
 #[derive(Clone, Debug)]
-struct EnvValue {
-    value: Value,
-    var_type: VarType,
+pub struct EnvValue {
+    pub value: Value,
+    var_modifier: Modifier,
 }
 
 #[derive(Clone)]
 pub struct Environment {
     values: HashMap<Rc<str>, EnvValue>,
     enclosing: Option<Rc<RefCell<Environment>>>,
+}
+
+pub struct EnvError {
+    pub error_token: Rc<Token>,
+    pub error_msg: Rc<str>,
 }
 
 impl Environment {
@@ -38,70 +40,54 @@ impl Environment {
         }))
     }
 
-    pub fn define(&mut self, name: Rc<str>, value: Value, var_type: VarType) {
-        self.values.insert(name, EnvValue { value, var_type });
+    pub fn define(&mut self, name: Rc<str>, value: Value, var_type: Modifier) {
+        self.values.insert(name, EnvValue { value, var_modifier: var_type });
     }
 
-    pub fn get(&self, name: &Token) -> Option<Value> {
-        if self.values.contains_key(&name.lexem) {
-            return Some(
-                self.values
-                    .get(&name.lexem)
-                    .expect("var not is there")
-                    .value
-                    .clone(),
-            );
+    pub fn get(&self, name: &Token) -> Result<EnvValue, EnvError> {
+        if let Some(env_val) = self.values.get(&name.lexem) {
+            return Ok(env_val.clone());
         }
 
         if let Some(env) = &self.enclosing {
-            return env.borrow().get(name).clone();
+            return env.borrow().get(name);
         }
 
-        None
+        Err(EnvError {
+            error_token: Rc::from(name.clone()),
+            error_msg: Rc::from("Variable does not exist"),
+        })
     }
 
-    pub fn get_type(&self, name: &Token) -> Option<&VarType> {
+    pub fn assign(&mut self, name: &Token, value: &Value) -> Result<(), EnvError> {
         if self.values.contains_key(&name.lexem) {
-            return Some(
-                &self
-                    .values
-                    .get(&name.lexem)
-                    .expect("var not is there")
-                    .var_type,
-            );
-        }
+            let var: EnvValue = self.get(name)?;
 
-        None
-    }
-
-    pub fn assign(&mut self, name: &Token, value: &Value) {
-        if self.values.contains_key(&name.lexem) {
-            let var_type = self.get_type(name);
-            let var = self.get(name);
-
-            if var_type == Some(&VarType::VAL) && var != Some(Value::Nil) {
-                dairy_hater::error_token(name, "Cannot assign to a constant");
-                return;
+            if var.var_modifier == Modifier::VAL && var.value != Value::Nil {
+                return Err(EnvError {
+                    error_token: Rc::from(name.clone()),
+                    error_msg: Rc::from("Cannot assign to a constant value"),
+                });
             }
 
             let name_env_val_tuple = (
                 name.lexem.clone(),
-                EnvValue {
-                    value: value.clone(),
-                    var_type: var_type.unwrap().clone(),
-                },
+                var
             );
 
             self.values
                 .insert(name_env_val_tuple.0, name_env_val_tuple.1);
 
-            return;
+            return Ok(());
         }
 
         if let Some(enclosing_env) = &self.enclosing {
             return enclosing_env.borrow_mut().assign(name, value);
         }
 
-        dairy_hater::error_token(name, "Variable with this name does not exist");
+        Err(EnvError {
+            error_token: Rc::from(name.clone()),
+            error_msg: Rc::from("Variable with this name does not exist"),
+        })
     }
 }

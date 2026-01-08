@@ -3,7 +3,7 @@ use std::{rc::Rc, vec};
 use crate::{
     dairy_hater,
     dairy_lang::{
-        environment::VarType,
+        environment::Modifier,
         expression::Expr,
         stmt::Stmt,
         token::{Token, TokenType, Value},
@@ -68,23 +68,21 @@ impl Parser {
 
     /// Declare const with VAL keyword
     fn const_declaration(&mut self) -> ParseResult<Stmt> {
-        self.create_var_decl_stmt(VarType::VAL)
+        self.create_var_decl_stmt(Modifier::VAL)
     }
 
     /// Gets var name from IDENTIFIER Token, then checks if there is an expression following declaration.
     /// If not variable is initialized as Nil
     fn var_declaration(&mut self) -> ParseResult<Stmt> {
-        self.create_var_decl_stmt(VarType::VAR)
+        self.create_var_decl_stmt(Modifier::VAR)
     }
 
     /// Creates a variable declaration statement with the given variable type.
-    fn create_var_decl_stmt(&mut self, var_type: VarType) -> ParseResult<Stmt> {
-        let name: Token;
-
-        name = self
+    fn create_var_decl_stmt(&mut self, var_type: Modifier) -> ParseResult<Stmt> {
+        let name = self
             .consume(
                 TokenType::IDENTIFIER,
-                if var_type == VarType::VAR {
+                if var_type == Modifier::VAR {
                     "Expected a const name"
                 } else {
                     "Expected a variable name"
@@ -100,7 +98,7 @@ impl Parser {
 
         self.consume(
             TokenType::SEMICOLON,
-            if var_type == VarType::VAR {
+            if var_type == Modifier::VAR {
                 "Expected ';' after variable declaration"
             } else {
                 "Expected ';' after a constant declaration"

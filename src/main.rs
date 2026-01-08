@@ -43,7 +43,7 @@ mod dairy_hater {
     };
 
     use crate::dairy_lang::{
-        interpreter::Interpreter,
+        interpreter::{EvalError, Interpreter},
         parser::Parser,
         scanner::Scanner,
         token::{Token, TokenType},
@@ -126,6 +126,14 @@ mod dairy_hater {
             return;
         }
 
-        let _ = interpreter.interpret(&mut stmts);
+        let exec_res = interpreter.interpret(&mut stmts);
+
+        if let Err(EvalError {
+            error_token: token,
+            error_msg,
+        }) = exec_res
+        {
+            error_token(&token, &error_msg);
+        }
     }
 }
