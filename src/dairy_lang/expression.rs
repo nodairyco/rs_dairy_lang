@@ -1,4 +1,5 @@
-use crate::dairy_lang::token::{Token, Value};
+use crate::dairy_lang::token::Token;
+use crate::dairy_lang::value::Value;
 
 #[derive(Debug, PartialEq)]
 pub enum Expr {

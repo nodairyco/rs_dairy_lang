@@ -1,12 +1,14 @@
+use std::str::FromStr;
 use std::{rc::Rc, vec};
 
+use crate::dairy_lang::value::{BuiltinType, Value};
 use crate::{
     dairy_hater,
     dairy_lang::{
         environment::Modifier,
         expression::Expr,
         stmt::Stmt,
-        token::{Token, TokenType, Value},
+        token::{Token, TokenType},
     },
 };
 
@@ -78,11 +80,11 @@ impl Parser {
     }
 
     /// Creates a variable declaration statement with the given variable type.
-    fn create_var_decl_stmt(&mut self, var_type: Modifier) -> ParseResult<Stmt> {
+    fn create_var_decl_stmt(&mut self, var_modifier: Modifier) -> ParseResult<Stmt> {
         let name = self
             .consume(
                 TokenType::IDENTIFIER,
-                if var_type == Modifier::VAR {
+                if var_modifier == Modifier::VAL {
                     "Expected a const name"
                 } else {
                     "Expected a variable name"
@@ -92,20 +94,39 @@ impl Parser {
 
         let mut initializer = Expr::empty();
 
+        let mut var_type: BuiltinType = BuiltinType::Unknown;
+
+        if self.match_types(&[TokenType::COLON]) {
+            match BuiltinType::from_str(&self.tokens[self.current].lexem) {
+                Ok(b) => var_type = b,
+                Err(_) => {
+                    return Err(ParseError {
+                        err_token_pos: self.current,
+                        err_msg: Rc::from(format!(
+                            "This type does not exist: {}",
+                            &self.tokens[self.current].lexem
+                        )),
+                    });
+                }
+            }
+
+            self.current += 1;
+        }
+
         if self.match_types(&[TokenType::EQUAL]) {
             initializer = self.expression()?;
         }
 
         self.consume(
             TokenType::SEMICOLON,
-            if var_type == Modifier::VAR {
+            if var_modifier == Modifier::VAR {
                 "Expected ';' after variable declaration"
             } else {
                 "Expected ';' after a constant declaration"
             },
         )?;
 
-        Ok(Stmt::new_var(name, initializer, var_type))
+        Ok(Stmt::new_var(name, initializer, var_modifier, var_type))
     }
 
     /// Get a statement from the current expression
@@ -161,27 +182,8 @@ impl Parser {
     /// Get condition expression, body, and the caller of a conditional statement
     fn get_conditional_stmt(&mut self) -> ParseResult<(Expr, Box<Stmt>, Token)> {
         let caller: Token = self.prev().clone();
-
-        let msg = if caller.token_type == TokenType::IF {
-            "Expected '[[' before an if statement condition"
-        } else {
-            "Expected '[[' before a while statement condition"
-        };
-
-        _ = self.consume(TokenType::DOUBLE_SQUARE_LEFT, msg)?;
-
         let condition_expr: Expr = self.equality()?;
-
-        let msg = if caller.token_type == TokenType::IF {
-            "Expected ']]' after an if statement condition"
-        } else {
-            "Expected ']]' after a while statement condition"
-        };
-
-        _ = self.consume(TokenType::DOUBLE_SQUARE_RIGHT, msg)?;
-
         let block: Stmt = self.statement()?;
-
         Ok((condition_expr, Box::from(block), caller))
     }
 

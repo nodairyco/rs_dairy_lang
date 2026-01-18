@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::dairy_lang::token::{Token, Value};
+use crate::dairy_lang::token::Token;
+use crate::dairy_lang::value::{BuiltinType, Value};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Modifier {
@@ -11,6 +12,7 @@ pub enum Modifier {
 #[derive(Clone, Debug)]
 pub struct EnvValue {
     pub value: Value,
+    var_type: BuiltinType,
     var_modifier: Modifier,
 }
 
@@ -40,12 +42,19 @@ impl Environment {
         }))
     }
 
-    pub fn define(&mut self, name: Rc<str>, value: Value, var_type: Modifier) {
+    pub fn define(
+        &mut self,
+        name: Rc<str>,
+        value: Value,
+        var_type: BuiltinType,
+        var_modifier: Modifier,
+    ) {
         self.values.insert(
             name,
             EnvValue {
                 value,
-                var_modifier: var_type,
+                var_type,
+                var_modifier,
             },
         );
     }
@@ -74,6 +83,22 @@ impl Environment {
                     error_token: Rc::from(name.clone()),
                     error_msg: Rc::from("Cannot assign to a constant value"),
                 });
+            }
+
+            let temp_type = BuiltinType::from(value);
+
+            if var.var_type != BuiltinType::Unknown && temp_type != var.var_type {
+                return Err(EnvError {
+                    error_token: Rc::from(name.clone()),
+                    error_msg: Rc::from(format!(
+                        "Type mismatch. Variable {} has type {:?} != {:?}",
+                        name.lexem, var.var_type, temp_type
+                    )),
+                });
+            }
+
+            if var.var_type == BuiltinType::Unknown {
+                var.var_type = temp_type;
             }
 
             var.value = value.clone();

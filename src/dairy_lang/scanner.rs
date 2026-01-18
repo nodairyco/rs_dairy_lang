@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
+use crate::dairy_lang::value::Value;
 use crate::{
     dairy_hater,
-    dairy_lang::token::{Token, TokenType, Value},
+    dairy_lang::token::{Token, TokenType},
 };
 
 pub struct Scanner {
@@ -101,6 +102,7 @@ impl Scanner {
             ';' => self.add_token(TokenType::SEMICOLON),
             '*' => self.add_token(TokenType::STAR),
             '%' => self.add_token(TokenType::MODULO),
+            ':' => self.add_token(TokenType::COLON),
             '!' => {
                 let token_type = match self.match_next('=') {
                     true => TokenType::BANG_EQUAL,

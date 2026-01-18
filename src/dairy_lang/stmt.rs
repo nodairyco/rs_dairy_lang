@@ -1,4 +1,6 @@
-use crate::dairy_lang::{environment::Modifier, expression::Expr, token::Token};
+use crate::dairy_lang::{
+    environment::Modifier, expression::Expr, token::Token, value::BuiltinType,
+};
 
 pub enum Stmt {
     Print(Expr),
@@ -6,7 +8,8 @@ pub enum Stmt {
     Var {
         name: Token,
         initializer: Expr,
-        var_type: Modifier,
+        var_modifier: Modifier,
+        var_type: BuiltinType,
     },
     Block(Vec<Stmt>),
     If {
@@ -30,8 +33,9 @@ impl Stmt {
             Stmt::Var {
                 name,
                 initializer,
+                var_modifier,
                 var_type,
-            } => visitor.visit_var_stmt(name, initializer, var_type.clone()),
+            } => visitor.visit_var_stmt(name, initializer, var_modifier.clone(), var_type.clone()),
             Stmt::Block(stmts) => visitor.visit_block(stmts),
             Stmt::If {
                 condition,
@@ -47,10 +51,16 @@ impl Stmt {
         }
     }
 
-    pub fn new_var(name: Token, initializer: Expr, var_type: Modifier) -> Stmt {
+    pub fn new_var(
+        name: Token,
+        initializer: Expr,
+        var_modifier: Modifier,
+        var_type: BuiltinType,
+    ) -> Stmt {
         Stmt::Var {
             name,
             initializer,
+            var_modifier,
             var_type,
         }
     }
@@ -59,7 +69,13 @@ impl Stmt {
 pub trait Visitor<R> {
     fn visit_print_stmt(&mut self, print_expr: &mut Expr) -> R;
     fn visit_expr_stmt(&mut self, expr_expr: &mut Expr) -> R;
-    fn visit_var_stmt(&mut self, name: &mut Token, initializer: &mut Expr, var_type: Modifier) -> R;
+    fn visit_var_stmt(
+        &mut self,
+        name: &mut Token,
+        initializer: &mut Expr,
+        var_modifier: Modifier,
+        var_type: BuiltinType,
+    ) -> R;
     fn visit_block(&mut self, stmts: &mut Vec<Stmt>) -> R;
     fn visit_if(
         &mut self,

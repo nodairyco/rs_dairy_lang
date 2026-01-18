@@ -1,8 +1,9 @@
 #![allow(non_camel_case_types)]
 #![allow(unused)]
 
+use crate::dairy_lang::value::Value;
 use core::fmt;
-use std::{fmt::write, rc::Rc};
+use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
@@ -16,6 +17,7 @@ pub enum TokenType {
     MINUS,
     PLUS,
     SEMICOLON,
+    COLON,
     SLASH,
     STAR,
     MODULO,
@@ -62,15 +64,6 @@ pub enum TokenType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Nil,
-    Number(f64),
-    Str(Rc<str>),
-    Bool(bool),
-    Void,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexem: Rc<str>,
@@ -85,18 +78,6 @@ impl Token {
             lexem: lexem,
             line: line,
             literal: literal,
-        }
-    }
-}
-
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Nil => write!(f, "nil"),
-            Value::Number(n) => write!(f, "{}", n),
-            Value::Str(str) => write!(f, "{}", *str),
-            Value::Bool(bool) => write!(f, "{}", bool),
-            _ => write!(f, ""),
         }
     }
 }

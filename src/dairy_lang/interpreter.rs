@@ -4,13 +4,13 @@ use std::{
     rc::Rc,
 };
 
-use crate::{
-    dairy_lang::{
-        environment::{EnvError, Environment, Modifier},
-        expression::{self, Expr},
-        stmt::{self, Stmt},
-        token::{Token, TokenType, Value},
-    },
+use crate::dairy_lang::value::Value;
+use crate::dairy_lang::{
+    environment::{EnvError, Environment, Modifier},
+    expression::{self, Expr},
+    stmt::{self, Stmt},
+    token::{Token, TokenType},
+    value::BuiltinType,
 };
 
 /// This struct handles executing statements. Contains a reference to an environment where
@@ -133,7 +133,9 @@ impl Interpreter {
             Value::Bool(bool) => Ok(bool),
             _ => Err(EvalError {
                 error_token: Rc::from(caller.clone()),
-                error_msg: Rc::from("Cannot have a none bool value in a conditional statement's condition"),
+                error_msg: Rc::from(
+                    "Cannot have a none bool value in a conditional statement's condition",
+                ),
             }),
         }
     }
@@ -160,7 +162,8 @@ impl stmt::Visitor<StmtResult> for Interpreter {
         &mut self,
         name: &mut Token,
         initializer: &mut Expr,
-        var_type: Modifier,
+        var_modifier: Modifier,
+        mut var_type: BuiltinType,
     ) -> StmtResult {
         let mut val = Value::Nil;
 
@@ -168,9 +171,23 @@ impl stmt::Visitor<StmtResult> for Interpreter {
             val = self.evaluate_expr(initializer)?;
         }
 
+        let temp_type = BuiltinType::from(&val);
+
+        if var_type != BuiltinType::Unknown && temp_type != var_type {
+            return Err(EvalError {
+                error_token: Rc::from(name.clone()),
+                error_msg: Rc::from(format!(
+                    "Type Mistmatch. Static var type does not match expression type.\n\t {:?}!={:?}",
+                    var_type, temp_type
+                )),
+            });
+        }
+
+        var_type = temp_type;
+
         self.env
             .borrow_mut()
-            .define(name.lexem.clone(), val, var_type);
+            .define(name.lexem.clone(), val, var_type, var_modifier);
 
         Ok(())
     }
