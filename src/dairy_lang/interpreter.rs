@@ -173,18 +173,19 @@ impl stmt::Visitor<StmtResult> for Interpreter {
 
         let temp_type = BuiltinType::from(&val);
 
-        if var_type != BuiltinType::Unknown && temp_type != var_type {
-            return Err(EvalError {
-                error_token: Rc::from(name.clone()),
-                error_msg: Rc::from(format!(
-                    "Type Mistmatch. Static var type does not match expression type.\n\t {:?}!={:?}",
-                    var_type, temp_type
-                )),
-            });
+        if val != Value::Nil {
+            if var_type != BuiltinType::Unknown && temp_type != var_type {
+                return Err(EvalError {
+                    error_token: Rc::from(name.clone()),
+                    error_msg: Rc::from(format!(
+                        "Type Mistmatch. Static var type does not match expression type.\n\t {:?}!={:?}",
+                        var_type, temp_type
+                    )),
+                });
+            }
+
+            var_type = temp_type;
         }
-
-        var_type = temp_type;
-
         self.env
             .borrow_mut()
             .define(name.lexem.clone(), val, var_type, var_modifier);
@@ -388,5 +389,31 @@ impl expression::Visitor<EvalResult> for Interpreter {
 
         self.env.borrow_mut().assign(var_name, &var_val)?;
         Ok(var_val)
+    }
+
+    fn visit_list(&mut self, values: &mut Vec<Expr>, caller: &mut Token) -> EvalResult {
+        let mut vals: Vec<Value> = Vec::new();
+        let mut curr_type: BuiltinType = BuiltinType::Unknown;
+
+        for val in values {
+            let expr_eval = self.evaluate_expr(val)?;
+            let expr_type = BuiltinType::from(&expr_eval);
+
+            if curr_type == BuiltinType::Unknown {
+                curr_type = expr_type;
+            } else if curr_type != expr_type {
+                return Err(EvalError {
+                    error_token: Rc::from(caller.clone()),
+                    error_msg: Rc::from(format!(
+                        "Type Mismatch. Cannot have multiple types in the same list ({:?}, {:?})",
+                        curr_type, expr_type,
+                    )),
+                });
+            }
+
+            vals.push(expr_eval);
+        }
+
+        Ok(Value::List(vals))
     }
 }

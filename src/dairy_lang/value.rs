@@ -8,7 +8,7 @@ pub enum Value {
     Number(f64),
     Str(Rc<str>),
     Bool(bool),
-    // Void,
+    List(Vec<Value>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -17,13 +17,24 @@ pub enum BuiltinType {
     Str,
     Bool,
     Unknown,
-    // Void,
+    List(Rc<BuiltinType>),
 }
 
 impl FromStr for BuiltinType {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with('[') {
+            if !s.ends_with(']') {
+                return Err(());
+            }
+
+            let mut s1 = s.replacen("[", "", 1);
+            s1 = s1.replacen("]", "", 1);
+
+            return Ok(Self::List(Rc::from(Self::from_str(&s1)?)));
+        }
+
         match s {
             "Number" => Ok(BuiltinType::Number),
             "Str" => Ok(BuiltinType::Str),
@@ -41,6 +52,13 @@ impl From<&Value> for BuiltinType {
             Value::Number(_) => Self::Number,
             Value::Str(_) => Self::Str,
             Value::Bool(_) => Self::Bool,
+            Value::List(l) => {
+                if l.is_empty() {
+                    Self::List(Rc::from(Self::Unknown))
+                } else {
+                    Self::List(Rc::from(Self::from(&l[0])))
+                }
+            }
         }
     }
 }
@@ -52,6 +70,19 @@ impl fmt::Display for Value {
             Value::Number(n) => write!(f, "{}", n),
             Value::Str(str) => write!(f, "{}", *str),
             Value::Bool(bool) => write!(f, "{}", bool),
+            Value::List(l) => {
+                let mut str = String::from("[");
+
+                for (i, v) in l.iter().enumerate() {
+                    if i != l.len() - 1 {
+                        str.push_str(&format!("{}, ", v));
+                    } else {
+                        str.push_str(&format!("{}", v));
+                    }
+                }
+
+                write!(f, "{}]", str)
+            }
         }
     }
 }

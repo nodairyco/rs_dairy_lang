@@ -25,6 +25,10 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+    List {
+        values: Vec<Expr>,
+        caller: Token,
+    },
 }
 
 impl Expr {
@@ -40,6 +44,7 @@ impl Expr {
             Expr::Unary { operator, right } => visitor.visit_unary(operator, right.as_mut()),
             Expr::Var { name } => visitor.visit_var(name),
             Expr::Assign { name, value } => visitor.visit_assign(name, value),
+            Expr::List { values, caller } => visitor.visit_list(values, caller),
         }
     }
 
@@ -55,4 +60,5 @@ pub trait Visitor<R> {
     fn visit_unary(&mut self, operator: &mut Token, right: &mut Expr) -> R;
     fn visit_var(&mut self, var_name: &mut Token) -> R;
     fn visit_assign(&mut self, var_name: &mut Token, val: &mut Expr) -> R;
+    fn visit_list(&mut self, values: &mut Vec<Expr>, caller: &mut Token) -> R;
 }

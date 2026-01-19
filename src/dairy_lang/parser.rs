@@ -97,20 +97,7 @@ impl Parser {
         let mut var_type: BuiltinType = BuiltinType::Unknown;
 
         if self.match_types(&[TokenType::COLON]) {
-            match BuiltinType::from_str(&self.tokens[self.current].lexem) {
-                Ok(b) => var_type = b,
-                Err(_) => {
-                    return Err(ParseError {
-                        err_token_pos: self.current,
-                        err_msg: Rc::from(format!(
-                            "This type does not exist: {}",
-                            &self.tokens[self.current].lexem
-                        )),
-                    });
-                }
-            }
-
-            self.current += 1;
+            var_type = self.get_type()?;
         }
 
         if self.match_types(&[TokenType::EQUAL]) {
@@ -127,6 +114,45 @@ impl Parser {
         )?;
 
         Ok(Stmt::new_var(name, initializer, var_modifier, var_type))
+    }
+
+    /// Get type of the current variable
+    /// var ls: [[[Str]]];
+    fn get_type(&mut self) -> Result<BuiltinType, ParseError> {
+        let mut var_type_str: String = String::new();
+        let mut left_counter: usize = 0;
+        let mut right_counter: usize = 0;
+
+        while self.match_types(&[TokenType::LEFT_SQUARE]) {
+            var_type_str.push('[');
+            left_counter += 1;
+        }
+
+        var_type_str.push_str(&self.tokens[self.current].lexem);
+        self.advance();
+
+        while self.match_types(&[TokenType::RIGHT_SQUARE]) {
+            var_type_str.push(']');
+            right_counter += 1;
+        }
+
+        if right_counter != left_counter {
+            return Err(ParseError {
+                err_token_pos: self.current - right_counter,
+                err_msg: Rc::from("Error declaring a list type. Size of '[' != Size of ']'"),
+            });
+        }
+
+        match BuiltinType::from_str(&var_type_str) {
+            Ok(b) => Ok(b),
+            Err(_) => Err(ParseError {
+                err_token_pos: self.current - right_counter,
+                err_msg: Rc::from(format!(
+                    "Type error. Type {} does not exist",
+                    self.tokens[self.current - right_counter].lexem
+                )),
+            }),
+        }
     }
 
     /// Get a statement from the current expression
@@ -226,12 +252,12 @@ impl Parser {
     }
 
     /// Assignment
-    /// assign -> IDNETIFIER "=" assignment | equality
+    /// assign -> IDNETIFIER "=" list
     fn assignment(&mut self) -> ParseResult<Expr> {
-        let mut expr: Expr = self.logical()?;
+        let mut expr: Expr = self.list()?;
 
         if self.match_types(&[TokenType::EQUAL]) {
-            let var_value: Expr = self.assignment()?;
+            let var_value: Expr = self.list()?;
 
             match expr {
                 Expr::Var { name } => {
@@ -250,6 +276,64 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    /// list expression
+    /// list = logical | [ logical | (logical ",")* ]
+    fn list(&mut self) -> ParseResult<Expr> {
+        if !self.match_types(&[TokenType::LEFT_SQUARE]) {
+            return self.logical();
+        }
+
+        let mut lexem: String = String::from("[");
+        let line = self.prev().line;
+
+        let mut exprs = Vec::new();
+
+        if self.match_types(&[TokenType::RIGHT_SQUARE]) {
+            lexem.push(']');
+            return Ok(Expr::List {
+                values: exprs,
+                caller: Token::new(TokenType::IDENTIFIER, Rc::from(lexem), line, Value::Nil),
+            });
+        }
+
+        let mut from = self.current;
+        exprs.push(self.list()?);
+        let mut to = self.current;
+
+        for i in from..to {
+            lexem.push_str(&self.tokens[i].lexem);
+        }
+
+        lexem.push_str(", ");
+
+        while self.match_types(&[TokenType::COMMA]) {
+            from = self.current;
+            exprs.push(self.list()?);
+            to = self.current;
+
+            for i in from..to {
+                lexem.push_str(&self.tokens[i].lexem);
+            }
+
+            lexem.push_str(", ");
+        }
+
+        let _ = lexem.pop();
+        let _ = lexem.pop();
+
+        self.consume(
+            TokenType::RIGHT_SQUARE,
+            "Expected ']' after list declaration",
+        )?;
+
+        lexem.push(']');
+
+        Ok(Expr::List {
+            values: exprs,
+            caller: Token::new(TokenType::IDENTIFIER, Rc::from(lexem), line, Value::Nil),
+        })
     }
 
     /// Logical and, or, and xor operators

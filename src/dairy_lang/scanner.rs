@@ -103,6 +103,8 @@ impl Scanner {
             '*' => self.add_token(TokenType::STAR),
             '%' => self.add_token(TokenType::MODULO),
             ':' => self.add_token(TokenType::COLON),
+            '[' => self.add_token(TokenType::LEFT_SQUARE),
+            ']' => self.add_token(TokenType::RIGHT_SQUARE),
             '!' => {
                 let token_type = match self.match_next('=') {
                     true => TokenType::BANG_EQUAL,
@@ -157,20 +159,6 @@ impl Scanner {
             '\t' => {}
             '\n' => self.line = self.line + 1,
             '"' => self.handle_string(),
-            '[' => {
-                if self.match_next('[') {
-                    self.add_token(TokenType::DOUBLE_SQUARE_LEFT);
-                } else {
-                    dairy_hater::error(self.line, "Unexpected character");
-                }
-            }
-            ']' => {
-                if self.match_next(']') {
-                    self.add_token(TokenType::DOUBLE_SQUARE_RIGHT);
-                } else {
-                    dairy_hater::error(self.line, "Unexpected character");
-                }
-            }
             rest => {
                 if Self::is_digit(&rest) {
                     self.handle_number();

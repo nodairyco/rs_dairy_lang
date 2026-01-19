@@ -12,6 +12,8 @@ pub enum TokenType {
     RIGHT_PAREN,
     LEFT_BRACE,
     RIGHT_BRACE,
+    LEFT_SQUARE,
+    RIGHT_SQUARE,
     COMMA,
     DOT,
     MINUS,
@@ -31,8 +33,6 @@ pub enum TokenType {
     GREATER_EQUAL,
     LESS,
     LESS_EQUAL,
-    DOUBLE_SQUARE_LEFT,
-    DOUBLE_SQUARE_RIGHT,
 
     // Literals.
     IDENTIFIER,

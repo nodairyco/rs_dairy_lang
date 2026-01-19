@@ -2,6 +2,7 @@ use crate::dairy_lang::{
     environment::Modifier, expression::Expr, token::Token, value::BuiltinType,
 };
 
+#[derive(Debug)]
 pub enum Stmt {
     Print(Expr),
     Expression(Expr),
