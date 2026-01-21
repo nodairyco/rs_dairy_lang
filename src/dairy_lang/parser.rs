@@ -252,12 +252,12 @@ impl Parser {
     }
 
     /// Assignment
-    /// assign -> IDNETIFIER "=" list
+    /// assign -> IDNETIFIER "=" logical
     fn assignment(&mut self) -> ParseResult<Expr> {
-        let mut expr: Expr = self.list()?;
+        let mut expr: Expr = self.logical()?;
 
         if self.match_types(&[TokenType::EQUAL]) {
-            let var_value: Expr = self.list()?;
+            let var_value: Expr = self.logical()?;
 
             match expr {
                 Expr::Var { name } => {
@@ -276,64 +276,6 @@ impl Parser {
         }
 
         Ok(expr)
-    }
-
-    /// list expression
-    /// list = logical | [ logical | (logical ",")* ]
-    fn list(&mut self) -> ParseResult<Expr> {
-        if !self.match_types(&[TokenType::LEFT_SQUARE]) {
-            return self.logical();
-        }
-
-        let mut lexem: String = String::from("[");
-        let line = self.prev().line;
-
-        let mut exprs = Vec::new();
-
-        if self.match_types(&[TokenType::RIGHT_SQUARE]) {
-            lexem.push(']');
-            return Ok(Expr::List {
-                values: exprs,
-                caller: Token::new(TokenType::IDENTIFIER, Rc::from(lexem), line, Value::Nil),
-            });
-        }
-
-        let mut from = self.current;
-        exprs.push(self.list()?);
-        let mut to = self.current;
-
-        for i in from..to {
-            lexem.push_str(&self.tokens[i].lexem);
-        }
-
-        lexem.push_str(", ");
-
-        while self.match_types(&[TokenType::COMMA]) {
-            from = self.current;
-            exprs.push(self.list()?);
-            to = self.current;
-
-            for i in from..to {
-                lexem.push_str(&self.tokens[i].lexem);
-            }
-
-            lexem.push_str(", ");
-        }
-
-        let _ = lexem.pop();
-        let _ = lexem.pop();
-
-        self.consume(
-            TokenType::RIGHT_SQUARE,
-            "Expected ']' after list declaration",
-        )?;
-
-        lexem.push(']');
-
-        Ok(Expr::List {
-            values: exprs,
-            caller: Token::new(TokenType::IDENTIFIER, Rc::from(lexem), line, Value::Nil),
-        })
     }
 
     /// Logical and, or, and xor operators
@@ -389,7 +331,7 @@ impl Parser {
     /// factor -> unary ( ( "/" | "*" ) unary )* ;
     fn factor(&mut self) -> ParseResult<Expr> {
         self.create_binary_expr(
-            &mut |arg: &mut Self| arg.unary(),
+            &mut |arg: &mut Self| arg.list(),
             &[TokenType::SLASH, TokenType::STAR],
         )
     }
@@ -410,6 +352,84 @@ impl Parser {
             let operator: Token = self.prev().clone();
 
             let right: Expr = next_funct(self)?;
+
+            left = Expr::Binary {
+                left: Box::new(left),
+                operator,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// list expression
+    /// list = long_arrow | [ long_arrow | (long_arrow ",")* ]
+    fn list(&mut self) -> ParseResult<Expr> {
+        if !self.match_types(&[TokenType::LEFT_SQUARE]) {
+            return self.long_arrow();
+        }
+
+        let mut lexem: String = String::from("[");
+        let line = self.prev().line;
+
+        let mut exprs = Vec::new();
+
+        if self.match_types(&[TokenType::RIGHT_SQUARE]) {
+            lexem.push(']');
+            return Ok(Expr::List {
+                values: exprs,
+                caller: Token::new(TokenType::IDENTIFIER, Rc::from(lexem), line, Value::Nil),
+            });
+        }
+
+        let mut from = self.current;
+        exprs.push(self.list()?);
+        let mut to = self.current;
+
+        for i in from..to {
+            lexem.push_str(&self.tokens[i].lexem);
+        }
+
+        lexem.push_str(", ");
+
+        while self.match_types(&[TokenType::COMMA]) {
+            from = self.current;
+            exprs.push(self.list()?);
+            to = self.current;
+
+            for i in from..to {
+                lexem.push_str(&self.tokens[i].lexem);
+            }
+
+            lexem.push_str(", ");
+        }
+
+        let _ = lexem.pop();
+        let _ = lexem.pop();
+
+        self.consume(
+            TokenType::RIGHT_SQUARE,
+            "Expected ']' after list declaration",
+        )?;
+
+        lexem.push(']');
+
+        Ok(Expr::List {
+            values: exprs,
+            caller: Token::new(TokenType::IDENTIFIER, Rc::from(lexem), line, Value::Nil),
+        })
+    }
+
+    /// Long arrow expression. Returns a list of ints from left value to right value.
+    /// long_arrow -> unary | unary --> unary
+    fn long_arrow(&mut self) -> ParseResult<Expr> {
+        let mut left: Expr = self.unary()?;
+
+        if self.match_types(&[TokenType::LONG_ARROW]) {
+            let operator: Token = self.prev().clone();
+
+            let right: Expr = self.unary()?;
 
             left = Expr::Binary {
                 left: Box::new(left),

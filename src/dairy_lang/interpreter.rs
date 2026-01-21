@@ -279,6 +279,18 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 TokenType::GREATER_EQUAL => Ok(Value::Bool(l >= r)),
                 TokenType::LESS_EQUAL => Ok(Value::Bool(l <= r)),
                 TokenType::MODULO => Ok(Value::Number(l % r)),
+                TokenType::LONG_ARROW => {
+                    let mut res: Vec<Value> = Vec::new();
+                    if *l > *r {
+                        (*r as i64..*l as i64)
+                            .rev()
+                            .for_each(|f| res.push(Value::Number(f as f64)));
+                    } else {
+                        (*l as i64..*r as i64).for_each(|f| res.push(Value::Number(f as f64)));
+                    }
+
+                    Ok(Value::List(res))
+                }
                 _ => Err(EvalError {
                     error_token: Rc::from(operator.clone()),
                     error_msg: Rc::from(
@@ -317,6 +329,25 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 TokenType::AND => Ok(Value::Bool(*l && *r)),
                 TokenType::OR => Ok(Value::Bool(*l || *r)),
                 TokenType::XOR => Ok(Value::Bool(*l ^ *r)),
+                _ => Err(EvalError {
+                    error_token: Rc::from(operator.clone()),
+                    error_msg: Rc::from(
+                        format!("unsupported operation {} for bool", operator.lexem).as_str(),
+                    ),
+                }),
+            },
+            (Value::List(vec), Value::Number(num)) => match operator.token_type {
+                TokenType::STAR => {
+                    let mut res: Vec<Value> = Vec::new();
+
+                    for _ in 0..*num as u64 {
+                        for v in vec {
+                            res.push(v.clone());
+                        }
+                    }
+
+                    Ok(Value::List(res))
+                }
                 _ => Err(EvalError {
                     error_token: Rc::from(operator.clone()),
                     error_msg: Rc::from(

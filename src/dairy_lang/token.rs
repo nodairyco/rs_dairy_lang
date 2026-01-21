@@ -33,6 +33,7 @@ pub enum TokenType {
     GREATER_EQUAL,
     LESS,
     LESS_EQUAL,
+    LONG_ARROW,
 
     // Literals.
     IDENTIFIER,

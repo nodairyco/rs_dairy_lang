@@ -97,7 +97,6 @@ impl Scanner {
             '}' => self.add_token(TokenType::RIGHT_BRACE),
             ',' => self.add_token(TokenType::COMMA),
             '.' => self.add_token(TokenType::DOT),
-            '-' => self.add_token(TokenType::MINUS),
             '+' => self.add_token(TokenType::PLUS),
             ';' => self.add_token(TokenType::SEMICOLON),
             '*' => self.add_token(TokenType::STAR),
@@ -105,6 +104,17 @@ impl Scanner {
             ':' => self.add_token(TokenType::COLON),
             '[' => self.add_token(TokenType::LEFT_SQUARE),
             ']' => self.add_token(TokenType::RIGHT_SQUARE),
+            '-' => {
+                if self.match_next('-') {
+                    if self.match_next('>') {
+                        self.add_token(TokenType::LONG_ARROW);
+                    } else {
+                        dairy_hater::error(self.line, "Unexpected character");
+                    }
+                } else {
+                    self.add_token(TokenType::MINUS)
+                }
+            }
             '!' => {
                 let token_type = match self.match_next('=') {
                     true => TokenType::BANG_EQUAL,
