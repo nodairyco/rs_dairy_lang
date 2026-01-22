@@ -12,6 +12,7 @@ use crate::{
     },
 };
 
+#[derive(Debug)]
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
@@ -146,10 +147,10 @@ impl Parser {
         match BuiltinType::from_str(&var_type_str) {
             Ok(b) => Ok(b),
             Err(_) => Err(ParseError {
-                err_token_pos: self.current - right_counter,
+                err_token_pos: self.current - right_counter - 1,
                 err_msg: Rc::from(format!(
                     "Type error. Type {} does not exist",
-                    self.tokens[self.current - right_counter].lexem
+                    self.tokens[self.current - right_counter - 1].lexem
                 )),
             }),
         }
@@ -331,7 +332,7 @@ impl Parser {
     /// factor -> unary ( ( "/" | "*" ) unary )* ;
     fn factor(&mut self) -> ParseResult<Expr> {
         self.create_binary_expr(
-            &mut |arg: &mut Self| arg.list(),
+            &mut |arg: &mut Self| arg.index(),
             &[TokenType::SLASH, TokenType::STAR],
         )
     }
@@ -361,6 +362,38 @@ impl Parser {
         }
 
         Ok(left)
+    }
+
+    /// List indexing expression
+    /// index -> logical ('[' index ']')*
+    fn index(&mut self) -> ParseResult<Expr> {
+        let start = self.current;
+        let mut originator: Expr = self.list()?;
+
+        while self.match_types(&[TokenType::LEFT_SQUARE]) {
+            let index = self.index()?;
+
+            self.consume(
+                TokenType::RIGHT_SQUARE,
+                "Expected ']' after an index expression",
+            )?;
+
+            let end = self.current;
+            let mut caller = Token::new(TokenType::IDENTIFIER, Rc::from(""), 0, Value::Nil);
+
+            for i in start..end {
+                caller.lexem =
+                    Rc::from(String::from(caller.lexem.as_ref()) + &self.tokens[i].lexem);
+            }
+
+            originator = Expr::Index {
+                index: Box::new(index),
+                originator: Box::new(originator),
+                caller,
+            };
+        }
+
+        Ok(originator)
     }
 
     /// list expression
@@ -491,13 +524,9 @@ impl Parser {
                     expression: Box::new(expr),
                 })
             }
-            TokenType::SEMICOLON => Err(ParseError {
-                err_token_pos: self.current - 2,
-                err_msg: Rc::from("No expression provided for the current statement"),
-            }),
             _ => Err(ParseError {
                 err_token_pos: self.current - 1,
-                err_msg: Rc::from("Variable does not exist"),
+                err_msg: Rc::from("Unexpected Token"),
             }),
         }
     }

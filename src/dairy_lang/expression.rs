@@ -29,6 +29,11 @@ pub enum Expr {
         values: Vec<Expr>,
         caller: Token,
     },
+    Index {
+        index: Box<Expr>,
+        originator: Box<Expr>,
+        caller: Token,
+    },
 }
 
 impl Expr {
@@ -45,6 +50,11 @@ impl Expr {
             Expr::Var { name } => visitor.visit_var(name),
             Expr::Assign { name, value } => visitor.visit_assign(name, value),
             Expr::List { values, caller } => visitor.visit_list(values, caller),
+            Expr::Index {
+                index,
+                originator,
+                caller,
+            } => visitor.visit_index(index, originator, caller),
         }
     }
 
@@ -61,4 +71,10 @@ pub trait Visitor<R> {
     fn visit_var(&mut self, var_name: &mut Token) -> R;
     fn visit_assign(&mut self, var_name: &mut Token, val: &mut Expr) -> R;
     fn visit_list(&mut self, values: &mut Vec<Expr>, caller: &mut Token) -> R;
+    fn visit_index(
+        &mut self,
+        index: &mut Box<Expr>,
+        originator: &mut Box<Expr>,
+        caller: &mut Token,
+    ) -> R;
 }

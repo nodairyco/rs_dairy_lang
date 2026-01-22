@@ -422,6 +422,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
         Ok(var_val)
     }
 
+    /// Evaluates a list expression
     fn visit_list(&mut self, values: &mut Vec<Expr>, caller: &mut Token) -> EvalResult {
         let mut vals: Vec<Value> = Vec::new();
         let mut curr_type: BuiltinType = BuiltinType::Unknown;
@@ -446,5 +447,71 @@ impl expression::Visitor<EvalResult> for Interpreter {
         }
 
         Ok(Value::List(vals))
+    }
+
+    /// Evaluates an index expression
+    fn visit_index(
+        &mut self,
+        index: &mut Box<Expr>,
+        originator: &mut Box<Expr>,
+        caller: &mut Token,
+    ) -> EvalResult {
+        let index_val = self.evaluate_expr(index)?;
+
+        let originator_val = self.evaluate_expr(originator)?;
+
+        return if let Value::Number(i) = index_val {
+            match originator_val {
+                Value::Str(str) => {
+                    let char_res = str.chars().nth(if i >= 0f64 {
+                        i as usize
+                    } else {
+                        (str.len() as f64 + i) as usize
+                    });
+
+                    return if let Some(chr) = char_res
+                        && i.abs() <= str.len() as f64
+                    {
+                        Ok(Value::Str(Rc::from(String::from(chr))))
+                    } else {
+                        Err(EvalError {
+                            error_token: Rc::from(caller.clone()),
+                            error_msg: Rc::from(format!("Index {} out of bounds for {}", i, str)),
+                        })
+                    };
+                }
+                Value::List(values) => {
+                    return if let Some(val) = values.get(if i >= 0f64 {
+                        i as usize
+                    } else {
+                        (values.len() as f64 + i) as usize
+                    }) && i.abs() <= values.len() as f64
+                    {
+                        Ok(val.clone())
+                    } else {
+                        Err(EvalError {
+                            error_token: Rc::from(caller.clone()),
+                            error_msg: Rc::from(format!(
+                                "Index {} out of bounds for list of size {}",
+                                i,
+                                values.len()
+                            )),
+                        })
+                    };
+                }
+                _type => Err(EvalError {
+                    error_token: Rc::from(caller.clone()),
+                    error_msg: Rc::from(format!(
+                        "{} evaluated to a non-indexable type, {:?}",
+                        caller.lexem, _type
+                    )),
+                }),
+            }
+        } else {
+            Err(EvalError {
+                error_token: Rc::from(caller.clone()),
+                error_msg: Rc::from(format!("Index {}, is not a number", index_val)),
+            })
+        };
     }
 }
