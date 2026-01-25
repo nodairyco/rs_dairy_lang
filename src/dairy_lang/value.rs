@@ -43,6 +43,7 @@ impl FromStr for BuiltinType {
             "Str" => Ok(BuiltinType::Str),
             "Bool" => Ok(BuiltinType::Bool),
             "Unknown" => Ok(BuiltinType::Unknown),
+            "Range" => Ok(BuiltinType::Range),
             _ => Err(()),
         }
     }
