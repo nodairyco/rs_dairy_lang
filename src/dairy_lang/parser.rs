@@ -175,6 +175,10 @@ impl Parser {
                 self.advance();
                 self.while_stmt()
             }
+            TokenType::FOR => {
+                self.advance();
+                self.for_stmt()
+            }
             _ => self.expr_stmt(),
         }
     }
@@ -203,6 +207,25 @@ impl Parser {
             if_block: cond_stmt.1,
             else_block,
             caller: cond_stmt.2,
+        })
+    }
+
+    fn for_stmt(&mut self) -> ParseResult<Stmt> {
+        let for_loop_var_name: Token = self.tokens[self.current].clone();
+        let caller: Token = self.tokens[self.current].clone();
+        self.advance();
+
+        self.consume(TokenType::IN, "missing 'in' in the for statement statement")?;
+
+        let condition: Expr = self.expression()?;
+
+        let block: Stmt = self.statement()?;
+
+        Ok(Stmt::For {
+            loop_var: for_loop_var_name,
+            condition,
+            block: Box::new(block),
+            caller,
         })
     }
 

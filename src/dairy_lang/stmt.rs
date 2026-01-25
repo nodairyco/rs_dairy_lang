@@ -24,6 +24,12 @@ pub enum Stmt {
         block: Box<Stmt>,
         caller: Token,
     },
+    For {
+        loop_var: Token,
+        condition: Expr,
+        block: Box<Stmt>,
+        caller: Token,
+    },
 }
 
 impl Stmt {
@@ -49,6 +55,12 @@ impl Stmt {
                 block,
                 caller,
             } => visitor.visit_while(condition, block, caller),
+            Stmt::For {
+                loop_var,
+                condition,
+                block,
+                caller,
+            } => visitor.visit_for(loop_var, condition, block, caller),
         }
     }
 
@@ -89,6 +101,13 @@ pub trait Visitor<R> {
         &mut self,
         condition: &mut Expr,
         while_block: &mut Stmt,
+        caller: &mut Token,
+    ) -> R;
+    fn visit_for(
+        &mut self,
+        loop_var: &mut Token,
+        condition: &mut Expr,
+        block: &mut Stmt,
         caller: &mut Token,
     ) -> R;
 }

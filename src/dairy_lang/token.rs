@@ -60,6 +60,7 @@ pub enum TokenType {
     VAR,
     VAL,
     WHILE,
+    IN,
 
     EOF,
 }

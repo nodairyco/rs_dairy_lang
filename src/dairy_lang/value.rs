@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops::Range;
 use std::rc::Rc;
 use std::str::FromStr;
 
@@ -9,6 +10,7 @@ pub enum Value {
     Str(Rc<str>),
     Bool(bool),
     List(Vec<Value>),
+    Range(Range<i64>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -18,6 +20,7 @@ pub enum BuiltinType {
     Bool,
     Unknown,
     List(Rc<BuiltinType>),
+    Range,
 }
 
 impl FromStr for BuiltinType {
@@ -59,6 +62,7 @@ impl From<&Value> for BuiltinType {
                     Self::List(Rc::from(Self::from(&l[0])))
                 }
             }
+            Value::Range(_) => Self::Range,
         }
     }
 }
@@ -75,14 +79,29 @@ impl fmt::Display for Value {
 
                 for (i, v) in l.iter().enumerate() {
                     if i != l.len() - 1 {
-                        str.push_str(&format!("{}, ", v));
+                        str.push_str(&format!(
+                            "{}, ",
+                            if let Value::Str(v1) = v {
+                                format!("\"{}\"", v1)
+                            } else {
+                                v.to_string()
+                            }
+                        ));
                     } else {
-                        str.push_str(&format!("{}", v));
+                        str.push_str(&format!(
+                            "{}",
+                            if let Value::Str(v1) = v {
+                                format!("\"{}\"", v1)
+                            } else {
+                                v.to_string()
+                            }
+                        ));
                     }
                 }
 
                 write!(f, "{}]", str)
             }
+            Value::Range(r) => write!(f, "Range({},{})", r.start, r.end),
         }
     }
 }

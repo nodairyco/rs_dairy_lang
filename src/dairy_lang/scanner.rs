@@ -55,6 +55,7 @@ impl Scanner {
         ("var", TokenType::VAR),
         ("val", TokenType::VAL),
         ("while", TokenType::WHILE),
+        ("in", TokenType::IN),
     ];
 
     /// Scans over every char in the source code and returns the tokens

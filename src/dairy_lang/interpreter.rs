@@ -233,6 +233,81 @@ impl stmt::Visitor<StmtResult> for Interpreter {
 
         Ok(())
     }
+
+    fn visit_for(
+        &mut self,
+        loop_var: &mut Token,
+        condition: &mut Expr,
+        block: &mut Stmt,
+        caller: &mut Token,
+    ) -> StmtResult {
+        let iter_expr_val = self.evaluate_expr(condition)?;
+
+        let mut str_iter = None;
+        let mut ls_iter = None;
+        let mut rang_iter = None;
+
+        match &iter_expr_val {
+            Value::Number(_) => {
+                return Err(EvalError {
+                    error_token: Rc::from(caller.clone()),
+                    error_msg: Rc::from("Cannot iterate over a Number"),
+                });
+            }
+            Value::Bool(_) => {
+                return Err(EvalError {
+                    error_token: Rc::from(caller.clone()),
+                    error_msg: Rc::from("Cannot iterate over a Bool"),
+                });
+            }
+            Value::Nil => {
+                return Err(EvalError {
+                    error_token: Rc::from(caller.clone()),
+                    error_msg: Rc::from("Cannot have a Nil iterator value"),
+                });
+            }
+            Value::Str(str) => str_iter = Some(str.chars().into_iter()),
+            Value::List(ls) => ls_iter = Some(ls.into_iter()),
+            Value::Range(r) => rang_iter = Some(r),
+        };
+
+        if let Some(iter) = str_iter {
+            for val in iter.map(|x| Value::Str(Rc::from(String::from(x)))) {
+                self.env.borrow_mut().define(
+                    loop_var.lexem.clone(),
+                    val,
+                    BuiltinType::Str,
+                    Modifier::VAL,
+                );
+
+                self.execute_stmt(block)?;
+            }
+        } else if let Some(iter) = rang_iter {
+            for val in iter.clone().map(|x| Value::Number(x as f64)) {
+                self.env.borrow_mut().define(
+                    loop_var.lexem.clone(),
+                    val,
+                    BuiltinType::Str,
+                    Modifier::VAL,
+                );
+
+                self.execute_stmt(block)?;
+            }
+        } else if let Some(iter) = ls_iter {
+            for val in iter {
+                self.env.borrow_mut().define(
+                    loop_var.lexem.clone(),
+                    val.clone(),
+                    BuiltinType::Str,
+                    Modifier::VAL,
+                );
+
+                self.execute_stmt(block)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl expression::Visitor<EvalResult> for Interpreter {
@@ -279,18 +354,7 @@ impl expression::Visitor<EvalResult> for Interpreter {
                 TokenType::GREATER_EQUAL => Ok(Value::Bool(l >= r)),
                 TokenType::LESS_EQUAL => Ok(Value::Bool(l <= r)),
                 TokenType::MODULO => Ok(Value::Number(l % r)),
-                TokenType::LONG_ARROW => {
-                    let mut res: Vec<Value> = Vec::new();
-                    if *l > *r {
-                        (*r as i64..*l as i64)
-                            .rev()
-                            .for_each(|f| res.push(Value::Number(f as f64)));
-                    } else {
-                        (*l as i64..*r as i64).for_each(|f| res.push(Value::Number(f as f64)));
-                    }
-
-                    Ok(Value::List(res))
-                }
+                TokenType::LONG_ARROW => Ok(Value::Range(*l as i64..*r as i64)),
                 _ => Err(EvalError {
                     error_token: Rc::from(operator.clone()),
                     error_msg: Rc::from(
