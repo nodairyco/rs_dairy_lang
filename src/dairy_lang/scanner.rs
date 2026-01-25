@@ -166,7 +166,7 @@ impl Scanner {
                 }
             }
             ' ' => {}
-            'r' => {}
+            '\r' => {}
             '\t' => {}
             '\n' => self.line = self.line + 1,
             '"' => self.handle_string(),

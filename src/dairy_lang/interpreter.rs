@@ -271,6 +271,19 @@ impl stmt::Visitor<StmtResult> for Interpreter {
             Value::Range(r) => rang_iter = Some(r),
         };
 
+        let prev_env = self.env.clone();
+        self.env = Environment::from_enclosing_env(self.env.clone());
+
+        if let Ok(_) = &self.env.borrow().get(&loop_var) {
+            return Err(EvalError {
+                error_token: Rc::from(loop_var.clone()),
+                error_msg: Rc::from(format!(
+                    "Cannot declare a for loop variable with name {} as a variable is already declared with that name",
+                    loop_var.lexem
+                )),
+            });
+        }
+
         if let Some(iter) = str_iter {
             for val in iter.map(|x| Value::Str(Rc::from(String::from(x)))) {
                 self.env.borrow_mut().define(
@@ -305,6 +318,8 @@ impl stmt::Visitor<StmtResult> for Interpreter {
                 self.execute_stmt(block)?;
             }
         }
+
+        self.env = prev_env;
 
         Ok(())
     }
